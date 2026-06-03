@@ -1,0 +1,403 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum CompositionStatus {
+  DRAFT
+  SAVED
+  ARCHIVED
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum VirtualInfluencerStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum InfluencerPostStatus {
+  DRAFT
+  GENERATED
+  APPROVED
+  SCHEDULED
+  PUBLISHED
+  NEEDS_REVISION
+  FAILED
+}
+
+enum SocialPlatform {
+  INSTAGRAM
+  TIKTOK
+}
+
+enum SocialConnectionStatus {
+  DISCONNECTED
+  CONNECTED
+  ACTION_REQUIRED
+  ERROR
+}
+
+enum AutomationRunStatus {
+  STARTED
+  SUCCESS
+  PARTIAL
+  FAILED
+}
+
+model User {
+  id                      Int                      @id @default(autoincrement())
+  email                   String                   @unique
+  name                    String?
+  image                   String?
+  passwordHash            String?
+  role                    UserRole                 @default(USER)
+  emailVerified           DateTime?
+  stripeCustomerId        String?                  @unique
+  creditsBalance          Int                      @default(0)
+  avatar                  Avatar?
+  compositions            Composition[]
+  billingSubscription     BillingSubscription?
+  creditLedger            CreditLedger[]
+  generationUsage         GenerationUsage[]
+  emailVerificationTokens EmailVerificationToken[]
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+}
+
+model BillingSubscription {
+  id                   Int      @id @default(autoincrement())
+  userId               Int      @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stripeCustomerId     String
+  stripeSubscriptionId String   @unique
+  status               String
+  plan                 String
+  monthlyCredits       Int
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([stripeCustomerId])
+  @@index([status])
+  @@index([plan])
+}
+
+model CreditLedger {
+  id             Int       @id @default(autoincrement())
+  userId         Int
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount         Int
+  balanceAfter   Int
+  reason         String
+  source         String?
+  stripeEventId  String?
+  generationId   Int?
+  generation     GenerationUsage? @relation(fields: [generationId], references: [id], onDelete: SetNull)
+  createdAt      DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@index([stripeEventId])
+  @@index([generationId])
+}
+
+model GenerationUsage {
+  id             Int            @id @default(autoincrement())
+  userId         Int
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  route          String
+  status         String         @default("STARTED")
+  creditsCharged Int            @default(0)
+  imageModel     String?
+  promptHash     String?
+  errorMessage   String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  creditLedger   CreditLedger[]
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+model EmailVerificationToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Avatar {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @unique
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  imageUrl  String
+  height    Float?
+  weight    Float?
+  bodyType  String?
+  consentAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Article {
+  id                       Int                     @id @default(autoincrement())
+  title                    String
+  description              String?
+  price                    Decimal                 @db.Decimal(10, 2)
+  category                 String
+  imageUrls                String[]
+  brand                    String?
+  brandId                  Int?
+  brandRef                 Brand?                  @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  shopUrl                  String?
+  rating                   Float?
+  reviewCount              Int                     @default(0)
+  shippingCountry          String?
+  shippingCountries        String[]
+  shippingPrice            Decimal?                @db.Decimal(10, 2)
+  shippingCurrency         String                  @default("USD")
+  freeShipping             Boolean                 @default(false)
+  estimatedDeliveryMinDays Int?
+  estimatedDeliveryMaxDays Int?
+  isOnSale                 Boolean                 @default(false)
+  discountPercent          Int?
+  colors                   String[]
+  materials                String[]
+  styleTags                String[]
+  tags                     ArticleTag[]
+  compositions             CompositionArticle[]
+  influencerPosts          InfluencerPostArticle[]
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
+
+  @@index([category])
+  @@index([brand])
+  @@index([brandId])
+  @@index([rating])
+  @@index([shippingCountry])
+  @@index([freeShipping])
+  @@index([isOnSale])
+}
+
+model Brand {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  logoUrl     String?
+  websiteUrl  String?
+  popularity  Float     @default(0)
+  articles    Article[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([popularity])
+}
+
+model Tag {
+  id        Int          @id @default(autoincrement())
+  name      String
+  slug      String       @unique
+  type      String?
+  articles  ArticleTag[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@index([type])
+}
+
+model ArticleTag {
+  articleId Int
+  tagId     Int
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([articleId, tagId])
+  @@index([tagId])
+}
+
+model Composition {
+  id           Int                  @id @default(autoincrement())
+  userId       Int
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String               @default("Mon Look")
+  generatedUrl String
+  thumbnailUrl String?
+  prompt       String?
+  status       CompositionStatus    @default(SAVED)
+  itemsSummary Json?
+  articles     CompositionArticle[]
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+model CompositionArticle {
+  compositionId Int
+  articleId     Int
+  composition   Composition @relation(fields: [compositionId], references: [id], onDelete: Cascade)
+  article       Article     @relation(fields: [articleId], references: [id], onDelete: Restrict)
+  moduleId      String?
+  moduleLabel   String?
+  itemSnapshot  Json?
+  position      Int         @default(0)
+  createdAt     DateTime    @default(now())
+
+  @@id([compositionId, articleId])
+  @@index([articleId])
+}
+
+model VirtualInfluencer {
+  id                    Int                         @id @default(autoincrement())
+  firstName             String
+  lastName              String?
+  displayName           String
+  username              String                      @unique
+  emailAlias            String?                     @unique
+  bio                   String?
+  status                VirtualInfluencerStatus     @default(DRAFT)
+  profileImageUrl       String?
+  faceReferenceImageUrl String?
+  bodyReferenceImageUrl String?
+  morphology            String?
+  height                Float?
+  bodyType              String?
+  skinTone              String?
+  hairStyle             String?
+  fashionStyle          String?
+  toneOfVoice           String?
+  targetAudience        String?
+  preferredCategories   String[]
+  promptContext         String?
+  isAiDisclosed         Boolean                     @default(true)
+  automationEnabled     Boolean                     @default(false)
+  postingFrequency      String?
+  preferredPostTime     String?
+  lastAutomatedPostAt   DateTime?
+  nextAutomatedPostAt   DateTime?
+  posts                 InfluencerPost[]
+  platformAccounts      InfluencerPlatformAccount[]
+  createdAt             DateTime                    @default(now())
+  updatedAt             DateTime                    @updatedAt
+
+  @@index([status])
+  @@index([fashionStyle])
+  @@index([automationEnabled])
+  @@index([nextAutomatedPostAt])
+}
+
+model InfluencerPlatformAccount {
+  id                         Int                    @id @default(autoincrement())
+  influencerId               Int
+  influencer                 VirtualInfluencer      @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+  platform                   SocialPlatform
+  handle                     String
+  profileUrl                 String?
+  connectionStatus           SocialConnectionStatus @default(DISCONNECTED)
+  providerAccountId          String?
+  metaUserId                 String?
+  metaPageId                 String?
+  metaPageName               String?
+  instagramBusinessAccountId String?
+  accessToken                String?
+  refreshToken               String?
+  tokenType                  String?
+  tokenScopes                String[]
+  tokenExpiresAt             DateTime?
+  lastSyncedAt               DateTime?
+  errorMessage               String?
+  createdAt                  DateTime               @default(now())
+  updatedAt                  DateTime               @updatedAt
+
+  @@unique([platform, handle])
+  @@unique([influencerId, platform])
+  @@index([influencerId])
+  @@index([platform])
+  @@index([connectionStatus])
+}
+
+model InfluencerPost {
+  id                Int                     @id @default(autoincrement())
+  influencerId      Int
+  influencer        VirtualInfluencer       @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+  status            InfluencerPostStatus    @default(DRAFT)
+  platform          SocialPlatform?
+  contentPillar     String?
+  caption           String?
+  hashtags          String[]
+  generatedImageUrl String?
+  thumbnailUrl      String?
+  prompt            String?
+  isAiDisclosed     Boolean                 @default(true)
+  scheduledAt       DateTime?
+  publishedAt       DateTime?
+  externalPostId    String?
+  externalPostUrl   String?
+  errorMessage      String?
+  metrics           Json?
+  articles          InfluencerPostArticle[]
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  @@index([influencerId, createdAt])
+  @@index([status])
+  @@index([platform])
+  @@index([scheduledAt])
+}
+
+model InfluencerPostArticle {
+  postId    Int
+  articleId Int
+  post      InfluencerPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  article   Article        @relation(fields: [articleId], references: [id], onDelete: Restrict)
+  position  Int            @default(0)
+  snapshot  Json?
+  createdAt DateTime       @default(now())
+
+  @@id([postId, articleId])
+  @@index([articleId])
+}
+
+model AutomationRun {
+  id             Int                 @id @default(autoincrement())
+  type           String
+  status         AutomationRunStatus @default(STARTED)
+  dryRun         Boolean             @default(false)
+  checked        Int                 @default(0)
+  generated      Int                 @default(0)
+  published      Int                 @default(0)
+  skipped        Int                 @default(0)
+  failed         Int                 @default(0)
+  influencerId   Int?
+  influencerName String?
+  postId         Int?
+  message        String?
+  errorMessage   String?
+  details        Json?
+  startedAt      DateTime            @default(now())
+  finishedAt     DateTime?
+  createdAt      DateTime            @default(now())
+
+  @@index([type, createdAt])
+  @@index([status])
+  @@index([influencerId])
+  @@index([postId])
+}
