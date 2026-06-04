@@ -191,7 +191,7 @@ export default async function EditorialCalendarPage({ searchParams }: EditorialC
     }),
   ]);
 
-  const postsByDay = posts.reduce<Map<string, CalendarPost[]>>((groups, post) => {
+  const postsByDay = posts.reduce<Map<string, CalendarPost[]>>((groups: Map<string, CalendarPost[]>, post: CalendarPost) => {
     const key = getDateKey(getCalendarDate(post));
     const current = groups.get(key) || [];
     current.push(post);
