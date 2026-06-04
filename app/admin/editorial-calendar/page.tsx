@@ -200,9 +200,9 @@ export default async function EditorialCalendarPage({ searchParams }: EditorialC
     return groups;
   }, new Map<string, CalendarPost[]>());
 
-  const scheduledCount = posts.filter((post) => post.status === influencerPostStatus.SCHEDULED).length;
-  const publishedCount = posts.filter((post) => post.status === influencerPostStatus.PUBLISHED).length;
-  const reviewCount = posts.filter((post) => reviewStatuses.includes(post.status as InfluencerPostStatus)).length;
+  const scheduledCount = posts.filter((post: CalendarPost) => post.status === influencerPostStatus.SCHEDULED).length;
+  const publishedCount = posts.filter((post: CalendarPost) => post.status === influencerPostStatus.PUBLISHED).length;
+  const reviewCount = posts.filter((post: CalendarPost) => reviewStatuses.includes(post.status as InfluencerPostStatus)).length;
 
   return (
     <main className="min-h-screen bg-[#FDFBFF] text-[#1C1C1C]">
@@ -326,7 +326,7 @@ export default async function EditorialCalendarPage({ searchParams }: EditorialC
                   </div>
 
                   <div className="space-y-2">
-                    {dayPosts.slice(0, 4).map((post) => {
+                    {dayPosts.slice(0, 4).map((post: CalendarPost) => {
                       const postImage = post.thumbnailUrl || post.generatedImageUrl;
 
                       return (
