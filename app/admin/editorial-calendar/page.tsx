@@ -132,64 +132,65 @@ export default async function EditorialCalendarPage({ searchParams }: EditorialC
   const gridEnd = new Date(calendarDays[calendarDays.length - 1]);
   gridEnd.setDate(gridEnd.getDate() + 1);
 
-  const [posts, readyToScheduleCount] = await Promise.all([
-    prisma.influencerPost.findMany({
-      where: {
-        OR: [
-          {
-            scheduledAt: {
-              gte: gridStart,
-              lt: gridEnd,
-            },
-          },
-          {
-            publishedAt: {
-              gte: gridStart,
-              lt: gridEnd,
-            },
-          },
-          {
-            createdAt: {
-              gte: gridStart,
-              lt: gridEnd,
-            },
-          },
-        ],
-      },
-      orderBy: [
+  const calendarPostsPromise = prisma.influencerPost.findMany({
+    where: {
+      OR: [
         {
-          scheduledAt: "asc",
+          scheduledAt: {
+            gte: gridStart,
+            lt: gridEnd,
+          },
         },
         {
-          createdAt: "desc",
+          publishedAt: {
+            gte: gridStart,
+            lt: gridEnd,
+          },
+        },
+        {
+          createdAt: {
+            gte: gridStart,
+            lt: gridEnd,
+          },
         },
       ],
-      select: {
-        id: true,
-        status: true,
-        caption: true,
-        thumbnailUrl: true,
-        generatedImageUrl: true,
-        createdAt: true,
-        scheduledAt: true,
-        publishedAt: true,
-        contentPillar: true,
-        influencer: {
-          select: {
-            displayName: true,
-            username: true,
-          },
+    },
+    orderBy: [
+      {
+        scheduledAt: "asc",
+      },
+      {
+        createdAt: "desc",
+      },
+    ],
+    select: {
+      id: true,
+      status: true,
+      caption: true,
+      thumbnailUrl: true,
+      generatedImageUrl: true,
+      createdAt: true,
+      scheduledAt: true,
+      publishedAt: true,
+      contentPillar: true,
+      influencer: {
+        select: {
+          displayName: true,
+          username: true,
         },
       },
-    }),
-    prisma.influencerPost.count({
+    },
+  }) as Promise<CalendarPost[]>;
+
+  const readyToScheduleCountPromise = prisma.influencerPost.count({
       where: {
         status: influencerPostStatus.APPROVED,
         scheduledAt: null,
         publishedAt: null,
       },
-    }),
-  ]);
+    });
+
+  const [posts, readyToScheduleCount] = await Promise.all([calendarPostsPromise, readyToScheduleCountPromise]);
 
   const postsByDay = posts.reduce<Map<string, CalendarPost[]>>((groups: Map<string, CalendarPost[]>, post: CalendarPost) => {
     const key = getDateKey(getCalendarDate(post));
