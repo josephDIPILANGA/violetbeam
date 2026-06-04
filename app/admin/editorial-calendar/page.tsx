@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { InfluencerPostStatus } from "@prisma/client";
 import {
   ArrowLeft,
   ArrowRight,
@@ -17,7 +16,17 @@ import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-const NEEDS_REVISION_STATUS = "NEEDS_REVISION" as InfluencerPostStatus;
+const influencerPostStatus = {
+  DRAFT: "DRAFT",
+  GENERATED: "GENERATED",
+  APPROVED: "APPROVED",
+  SCHEDULED: "SCHEDULED",
+  PUBLISHED: "PUBLISHED",
+  NEEDS_REVISION: "NEEDS_REVISION",
+  FAILED: "FAILED",
+} as const;
+
+type InfluencerPostStatus = (typeof influencerPostStatus)[keyof typeof influencerPostStatus];
 
 type EditorialCalendarPageProps = {
   searchParams: Promise<{
@@ -61,9 +70,9 @@ const statusStyles: Record<string, string> = {
 };
 
 const reviewStatuses: InfluencerPostStatus[] = [
-  InfluencerPostStatus.GENERATED,
-  NEEDS_REVISION_STATUS,
-  InfluencerPostStatus.FAILED,
+  influencerPostStatus.GENERATED,
+  influencerPostStatus.NEEDS_REVISION,
+  influencerPostStatus.FAILED,
 ];
 
 function getSingleParam(value: string | string[] | undefined) {
@@ -89,8 +98,8 @@ function getDateKey(date: Date) {
 }
 
 function getCalendarDate(post: CalendarPost) {
-  if (post.status === InfluencerPostStatus.SCHEDULED && post.scheduledAt) return post.scheduledAt;
-  if (post.status === InfluencerPostStatus.PUBLISHED && post.publishedAt) return post.publishedAt;
+  if (post.status === influencerPostStatus.SCHEDULED && post.scheduledAt) return post.scheduledAt;
+  if (post.status === influencerPostStatus.PUBLISHED && post.publishedAt) return post.publishedAt;
   return post.scheduledAt || post.publishedAt || post.createdAt;
 }
 
@@ -175,7 +184,7 @@ export default async function EditorialCalendarPage({ searchParams }: EditorialC
     }),
     prisma.influencerPost.count({
       where: {
-        status: InfluencerPostStatus.APPROVED,
+        status: influencerPostStatus.APPROVED,
         scheduledAt: null,
         publishedAt: null,
       },
@@ -190,9 +199,9 @@ export default async function EditorialCalendarPage({ searchParams }: EditorialC
     return groups;
   }, new Map<string, CalendarPost[]>());
 
-  const scheduledCount = posts.filter((post) => post.status === InfluencerPostStatus.SCHEDULED).length;
-  const publishedCount = posts.filter((post) => post.status === InfluencerPostStatus.PUBLISHED).length;
-  const reviewCount = posts.filter((post) => reviewStatuses.includes(post.status)).length;
+  const scheduledCount = posts.filter((post) => post.status === influencerPostStatus.SCHEDULED).length;
+  const publishedCount = posts.filter((post) => post.status === influencerPostStatus.PUBLISHED).length;
+  const reviewCount = posts.filter((post) => reviewStatuses.includes(post.status as InfluencerPostStatus)).length;
 
   return (
     <main className="min-h-screen bg-[#FDFBFF] text-[#1C1C1C]">
