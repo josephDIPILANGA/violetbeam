@@ -1,16 +1,29 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowUpRight, Images, Shirt, Sparkles, Store, WandSparkles } from "lucide-react";
+import {
+  ArrowUpRight,
+  BadgePercent,
+  Images,
+  Search,
+  Shirt,
+  SlidersHorizontal,
+  Sparkles,
+  Star,
+  Store,
+  Truck,
+  WandSparkles,
+  Zap,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { getCatalogModuleMeta } from "@/lib/catalog";
+import { getArticleProductHref, getCatalogModuleMeta } from "@/lib/catalog";
 import { normalizeCompositionItems } from "@/lib/compositions";
 import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = {
-  title: "AI fashion try-on and virtual lookbook",
+  title: "Fashion search engine, shoppable looks and AI try-on",
   description:
-    "Create AI try-on previews, explore shoppable fashion articles, and discover VioletBeam's generated lookbook.",
+    "Find fashion products by style, brand, price, shipping and benefits, then use VioletBeam's AI try-on to preview the looks before buying.",
   alternates: {
     canonical: "/",
   },
@@ -18,29 +31,43 @@ export const metadata: Metadata = {
 
 const featureLinks = [
   {
-    href: "/cabine",
-    title: "Cabine IA",
-    text: "Composez un look, chargez une silhouette et générez un aperçu d'essayage.",
-    icon: WandSparkles,
-  },
-  {
     href: "/catalog",
-    title: "Catalog",
-    text: "Explorez les articles, les marques, les prix et les liens vers les boutiques.",
+    title: "Search products",
+    text: "Trouvez les articles par style, marque, prix, livraison et avantages qui comptent vraiment.",
     icon: Shirt,
   },
   {
     href: "/lookbook",
-    title: "Lookbook",
-    text: "Découvrez les compositions enregistrées et les styles créés dans l'application.",
+    title: "Inspiration looks",
+    text: "Explorez des compositions et posts IA pour voir comment les produits peuvent vivre ensemble.",
     icon: Images,
+  },
+  {
+    href: "/cabine",
+    title: "AI try-on",
+    text: "Quand un article vous interesse, visualisez le rendu sur une silhouette avant d'acheter.",
+    icon: WandSparkles,
   },
 ];
 
 const steps = [
-  "Choisissez un article ou une composition",
-  "Générez un rendu try-on avec l'IA",
-  "Validez, sauvegardez ou ouvrez la boutique",
+  "Search by style, brand or benefit",
+  "Compare products and discover looks",
+  "Try-on with AI before buying",
+];
+
+const quickSearches = [
+  { label: "Dresses", href: "/catalog?q=dress" },
+  { label: "Blazers", href: "/catalog?q=blazer" },
+  { label: "Sneakers", href: "/catalog?q=sneakers" },
+  { label: "Bags", href: "/catalog?q=bag" },
+];
+
+const benefitLinks = [
+  { label: "Best deals", href: "/catalog?onSale=1&sort=newest", icon: BadgePercent },
+  { label: "Free shipping", href: "/catalog?freeShipping=1&sort=newest", icon: Truck },
+  { label: "Top rated", href: "/catalog?minRating=4&sort=top-rated", icon: Star },
+  { label: "Fast delivery", href: "/catalog?sort=delivery-fast", icon: Zap },
 ];
 
 async function loadHomePageData() {
@@ -83,10 +110,7 @@ async function loadHomePageData() {
   });
 
   try {
-    return await Promise.race([
-      Promise.all([compositionsQuery, articlesQuery]),
-      timeout,
-    ]);
+    return await Promise.race([Promise.all([compositionsQuery, articlesQuery]), timeout]);
   } catch (error) {
     console.warn("Home data loading failed:", error instanceof Error ? error.message : error);
     return [[], []] as HomePageData;
@@ -103,40 +127,74 @@ export default async function HomePage() {
         <div className="absolute top-[20%] -right-[10%] h-[52%] w-[32%] rounded-full bg-[#C9A0CD]/14 blur-[110px]" />
       </div>
 
-      <section className="relative mx-auto grid min-h-[calc(100vh-5rem)] max-w-7xl items-center gap-10 px-6 py-12 lg:grid-cols-[0.9fr_1.1fr] lg:px-10">
+      <section className="relative mx-auto grid min-h-[calc(100vh-5rem)] max-w-7xl items-center gap-10 px-6 py-12 lg:grid-cols-[0.95fr_1.05fr] lg:px-10">
         <div className="relative z-10">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-[#8d5f9e]/10 px-4 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.4em] text-[#8d5f9e]">
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#8d5f9e] opacity-75" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-[#8d5f9e]" />
             </span>
-            AI Fashion Studio
+            Fashion search engine
           </div>
 
           <h1 className="font-serif text-7xl italic leading-[0.85] tracking-tight text-[#1C1C1C] md:text-9xl">
             VioletBeam
           </h1>
           <p className="mt-7 max-w-xl text-2xl font-medium leading-9 text-[#4f365f] md:text-3xl">
-            Essayez les looks avant de les acheter.
+            Trouvez les articles qui vous correspondent vraiment.
           </p>
           <p className="mt-5 max-w-xl text-base leading-8 text-stone-500">
-            Une expérience mode assistée par IA pour composer des tenues, visualiser un rendu try-on, explorer des articles et sauvegarder les looks qui vous ressemblent.
+            Explorez la mode par style, marque, prix, livraison, notes et avantages. VioletBeam vous aide a chercher plus vite,
+            comparer plus clairement, puis visualiser les looks avec l'essayage IA quand vous etes pret.
           </p>
 
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
             <Button asChild className="h-14 rounded-full bg-[#1C1C1C] px-7 text-[10px] font-black uppercase tracking-[0.24em] text-white hover:bg-[#8d5f9e]">
-              <Link href="/cabine">
-                Start Try-On
+              <Link href="/catalog">
+                Search Products
                 <ArrowUpRight size={16} />
               </Link>
             </Button>
             <Button asChild className="h-14 rounded-full bg-white px-7 text-[10px] font-black uppercase tracking-[0.24em] text-[#4f365f] ring-1 ring-[#C9A0CD]/25 hover:bg-[#fbf7ff]">
-              <Link href="/catalog">
-                Explore Catalog
-                <Shirt size={15} />
+              <Link href="/cabine">
+                Try-On Studio
+                <WandSparkles size={15} />
               </Link>
             </Button>
           </div>
+
+          <form action="/catalog" className="mt-10 rounded-[32px] border border-white/80 bg-white/65 p-3 shadow-2xl shadow-purple-900/5 backdrop-blur-2xl">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+              <div className="relative min-w-0 flex-1">
+                <Search className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-[#8d5f9e]" size={18} strokeWidth={2.5} />
+                <input
+                  name="q"
+                  placeholder="Search dresses, sneakers, bags, blazers..."
+                  className="h-14 w-full rounded-full border border-white/80 bg-white/75 pl-14 pr-5 text-[11px] font-bold uppercase tracking-[0.16em] text-stone-600 outline-none transition-colors focus:border-[#C9A0CD]"
+                />
+              </div>
+              <Button type="submit" className="h-14 rounded-full bg-[#8d5f9e] px-6 text-[10px] font-black uppercase tracking-[0.22em] text-white hover:bg-[#1C1C1C]">
+                Find
+                <SlidersHorizontal size={15} />
+              </Button>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {benefitLinks.map((benefit) => {
+                const Icon = benefit.icon;
+
+                return (
+                  <Link
+                    key={benefit.label}
+                    href={benefit.href}
+                    className="inline-flex h-9 items-center gap-2 rounded-full border border-white/80 bg-white/65 px-3 text-[9px] font-black uppercase tracking-[0.16em] text-stone-500 transition-colors hover:bg-white hover:text-[#8d5f9e]"
+                  >
+                    <Icon size={12} className={benefit.label === "Top rated" ? "fill-current" : ""} />
+                    {benefit.label}
+                  </Link>
+                );
+              })}
+            </div>
+          </form>
         </div>
 
         <div className="relative min-h-[620px] overflow-hidden rounded-[44px] border border-white/80 bg-white/45 shadow-2xl shadow-purple-900/5 backdrop-blur-2xl">
@@ -146,6 +204,10 @@ export default async function HomePage() {
             className="absolute inset-0 h-full w-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-[#1C1C1C]/55 via-transparent to-white/10" />
+          <div className="absolute left-8 right-8 top-8 rounded-[28px] border border-white/25 bg-white/20 p-5 text-white backdrop-blur-xl">
+            <p className="text-[9px] font-black uppercase tracking-[0.26em] text-white/75">Shopping assistant</p>
+            <p className="mt-3 max-w-md font-serif text-4xl italic leading-none">Search first. Try-on when it matters.</p>
+          </div>
           <div className="absolute bottom-8 left-8 right-8 grid gap-4 sm:grid-cols-3">
             {steps.map((step, index) => (
               <div key={step} className="rounded-[24px] border border-white/25 bg-white/15 p-4 text-white backdrop-blur-xl">
@@ -163,11 +225,11 @@ export default async function HomePage() {
         <div className="mb-8 flex flex-col justify-between gap-5 md:flex-row md:items-end">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#8d5f9e]">Featured looks</p>
-            <h2 className="mt-3 font-serif text-6xl italic leading-none text-[#1C1C1C]">Compositions récentes</h2>
+            <h2 className="mt-3 font-serif text-6xl italic leading-none text-[#1C1C1C]">Looks pour s'inspirer</h2>
           </div>
           <Button asChild className="h-12 rounded-full bg-[#1C1C1C] px-6 text-[10px] font-black uppercase tracking-[0.22em] text-white hover:bg-[#8d5f9e]">
             <Link href="/lookbook">
-              Toutes les compositions
+              Browse looks
               <Images size={15} />
             </Link>
           </Button>
@@ -191,7 +253,7 @@ export default async function HomePage() {
                       className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
                     />
                     <div className="absolute left-4 top-4 rounded-full bg-black/10 px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white backdrop-blur-xl">
-                      {items.length} pièces
+                      {items.length} pieces
                     </div>
                   </div>
                   <div className="p-4">
@@ -205,7 +267,7 @@ export default async function HomePage() {
           </div>
         ) : (
           <div className="flex min-h-64 items-center justify-center rounded-[32px] border border-dashed border-[#C9A0CD]/40 bg-white/50 px-6 text-center">
-            <p className="text-sm font-semibold text-stone-400">Les compositions validées apparaîtront ici.</p>
+            <p className="text-sm font-semibold text-stone-400">Les compositions validees apparaitront ici.</p>
           </div>
         )}
       </section>
@@ -213,15 +275,27 @@ export default async function HomePage() {
       <section className="relative mx-auto max-w-7xl px-6 pb-16 lg:px-10">
         <div className="mb-8 flex flex-col justify-between gap-5 md:flex-row md:items-end">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#8d5f9e]">Product selection</p>
-            <h2 className="mt-3 font-serif text-6xl italic leading-none text-[#1C1C1C]">Articles à essayer</h2>
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#8d5f9e]">Product discovery</p>
+            <h2 className="mt-3 font-serif text-6xl italic leading-none text-[#1C1C1C]">Articles a comparer</h2>
           </div>
           <Button asChild className="h-12 rounded-full bg-white px-6 text-[10px] font-black uppercase tracking-[0.22em] text-[#4f365f] ring-1 ring-[#C9A0CD]/25 hover:bg-[#fbf7ff]">
             <Link href="/catalog">
-              Tous les articles
+              Open catalog
               <Shirt size={15} />
             </Link>
           </Button>
+        </div>
+
+        <div className="mb-8 flex flex-wrap gap-2">
+          {quickSearches.map((item) => (
+            <Link
+              key={item.label}
+              href={item.href}
+              className="inline-flex h-10 items-center rounded-full bg-white/65 px-4 text-[9px] font-black uppercase tracking-[0.18em] text-stone-500 ring-1 ring-white/80 transition-colors hover:bg-white hover:text-[#8d5f9e]"
+            >
+              {item.label}
+            </Link>
+          ))}
         </div>
 
         {articles.length > 0 ? (
@@ -232,7 +306,7 @@ export default async function HomePage() {
               return (
                 <Link
                   key={article.id}
-                  href={`/cabine?module=${article.category}&article=db-${article.id}`}
+                  href={getArticleProductHref(article)}
                   className="group overflow-hidden rounded-[28px] border border-white/70 bg-white/60 shadow-sm transition-all duration-500 hover:-translate-y-1 hover:bg-white hover:shadow-2xl hover:shadow-purple-900/10"
                 >
                   <div className="relative aspect-[4/5] overflow-hidden bg-[#f3edf9]">
@@ -268,7 +342,7 @@ export default async function HomePage() {
           </div>
         ) : (
           <div className="flex min-h-64 items-center justify-center rounded-[32px] border border-dashed border-[#C9A0CD]/40 bg-white/50 px-6 text-center">
-            <p className="text-sm font-semibold text-stone-400">Les articles du catalogue apparaîtront ici.</p>
+            <p className="text-sm font-semibold text-stone-400">Les articles du catalogue apparaitront ici.</p>
           </div>
         )}
       </section>
@@ -305,12 +379,13 @@ export default async function HomePage() {
               For fashion brands
             </div>
             <h2 className="font-serif text-6xl italic leading-none text-[#1C1C1C]">
-              Rendez vos articles essayables.
+              Rendez vos articles plus faciles a trouver.
             </h2>
           </div>
           <div className="flex flex-col justify-between gap-8">
             <p className="text-base leading-8 text-stone-500">
-              VioletBeam prépare un espace pour les boutiques et marques : catalogue enrichi, try-on IA, compositions sauvegardées et visibilité dans un lookbook communautaire.
+              VioletBeam prepare un espace pour les boutiques et marques : catalogue enrichi, recherche par avantages, pages produits SEO,
+              lookbooks IA et option try-on pour aider les visiteurs a passer de l'inspiration a l'achat.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row">
               <Button asChild className="h-12 rounded-full bg-[#1C1C1C] px-6 text-[10px] font-black uppercase tracking-[0.22em] text-white hover:bg-[#8d5f9e]">
