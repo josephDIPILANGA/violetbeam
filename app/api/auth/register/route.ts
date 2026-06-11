@@ -12,12 +12,10 @@ export async function POST(request: Request) {
     return Response.json({ error: getFirstZodError(parsedPayload.error) }, { status: 400 });
   }
 
-  const { name, email, password } = parsedPayload.data;
+  const { name, username, email, password, wantsToPostArticles, merchantProfile } = parsedPayload.data;
 
   const existingUser = await prisma.user.findUnique({
-    where: {
-      email,
-    },
+    where: { email },
     select: {
       id: true,
     },
@@ -27,17 +25,53 @@ export async function POST(request: Request) {
     return Response.json({ error: "Un compte existe deja avec cet email." }, { status: 409 });
   }
 
+  const existingUsername = await prisma.user.findUnique({
+    where: { username },
+    select: { id: true },
+  });
+
+  if (existingUsername) {
+    return Response.json({ error: "Ce username est deja utilise." }, { status: 409 });
+  }
+
+  if (wantsToPostArticles && merchantProfile?.shopDomain) {
+    const existingShop = await prisma.merchantProfile.findUnique({
+      where: { shopDomain: merchantProfile.shopDomain },
+      select: { id: true },
+    });
+
+    if (existingShop) {
+      return Response.json({ error: "Cette boutique est deja liee a un compte VioletBeam." }, { status: 409 });
+    }
+  }
+
   const user = await prisma.user.create({
     data: {
       email,
+      username,
       name,
       passwordHash: await hashPassword(password),
       emailVerified: null,
+      merchantProfile:
+        wantsToPostArticles && merchantProfile
+          ? {
+              create: {
+                shopName: merchantProfile.shopName,
+                shopDomain: merchantProfile.shopDomain,
+                shopDescription: merchantProfile.shopDescription || null,
+                sector: merchantProfile.sector || null,
+                country: merchantProfile.country || null,
+                wantsMarketplace: true,
+                approvedForPosting: true,
+              },
+            }
+          : undefined,
     },
     select: {
       id: true,
       email: true,
       name: true,
+      username: true,
     },
   });
 
@@ -68,6 +102,7 @@ export async function POST(request: Request) {
       id: user.id,
       email: user.email,
       name: user.name,
+      username: user.username,
     },
     message: "Compte cree. Verifiez votre email pour activer votre compte.",
   });

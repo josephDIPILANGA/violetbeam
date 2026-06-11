@@ -56,6 +56,7 @@ enum AutomationRunStatus {
 model User {
   id                      Int                      @id @default(autoincrement())
   email                   String                   @unique
+  username                String?                  @unique
   name                    String?
   image                   String?
   passwordHash            String?
@@ -68,9 +69,29 @@ model User {
   billingSubscription     BillingSubscription?
   creditLedger            CreditLedger[]
   generationUsage         GenerationUsage[]
+  merchantProfile         MerchantProfile?
   emailVerificationTokens EmailVerificationToken[]
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
+}
+
+model MerchantProfile {
+  id                 Int      @id @default(autoincrement())
+  userId             Int      @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shopName           String
+  shopDomain         String   @unique
+  shopDescription    String?
+  sector             String?
+  country            String?
+  platform           String   @default("SHOPIFY")
+  wantsMarketplace   Boolean  @default(true)
+  approvedForPosting Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([shopDomain])
+  @@index([approvedForPosting])
 }
 
 model BillingSubscription {

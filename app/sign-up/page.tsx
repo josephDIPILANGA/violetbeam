@@ -1,28 +1,57 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
-import { ArrowUpRight, Loader2, Sparkles, UserRound } from "lucide-react";
+import { FormEvent, useEffect, useState } from "react";
+import { ArrowUpRight, Building2, Loader2, Sparkles, Store, UserRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getZodFieldErrors, signUpSchema } from "@/lib/validations/auth";
 
-type SignUpField = "name" | "email" | "password" | "confirmPassword";
+type SignUpField =
+  | "name"
+  | "username"
+  | "email"
+  | "password"
+  | "confirmPassword"
+  | "shopName"
+  | "shopDomain";
 
 export default function SignUpPage() {
   const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [wantsToPostArticles, setWantsToPostArticles] = useState(false);
+  const [shopName, setShopName] = useState("");
+  const [shopDomain, setShopDomain] = useState("");
+  const [shopDescription, setShopDescription] = useState("");
+  const [sector, setSector] = useState("Fashion");
+  const [country, setCountry] = useState("France");
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<SignUpField, string>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const shop = params.get("shop") || "";
+    const isShopifyMerchant = params.get("merchant") === "shopify" || Boolean(shop);
+
+    if (isShopifyMerchant) {
+      setWantsToPostArticles(true);
+    }
+
+    if (shop) {
+      setShopDomain(shop);
+      setShopName((current) => current || shop.replace(".myshopify.com", ""));
+    }
+  }, []);
+
   const validateField = (
     field: SignUpField,
-    values: { name: string; email: string; password: string; confirmPassword: string },
+    values: { name: string; username: string; email: string; password: string; confirmPassword: string },
   ) => {
     const parsedPayload = signUpSchema.safeParse(values);
     const nextErrors = parsedPayload.success ? {} : getZodFieldErrors<SignUpField>(parsedPayload.error);
@@ -39,17 +68,37 @@ export default function SignUpPage() {
     setSuccessMessage(null);
     setFieldErrors({});
 
-    const parsedPayload = signUpSchema.safeParse({ name, email, password, confirmPassword });
+    const parsedPayload = signUpSchema.safeParse({ name, username, email, password, confirmPassword });
     if (!parsedPayload.success) {
       setFieldErrors(getZodFieldErrors<SignUpField>(parsedPayload.error));
+      return;
+    }
+
+    if (wantsToPostArticles && (!shopName.trim() || !shopDomain.trim())) {
+      setFieldErrors((current) => ({
+        ...current,
+        shopName: !shopName.trim() ? "Le nom de la boutique est obligatoire." : current.shopName,
+        shopDomain: !shopDomain.trim() ? "L'URL Shopify est obligatoire." : current.shopDomain,
+      }));
       return;
     }
 
     setIsSubmitting(true);
     const registerPayload = {
       name: parsedPayload.data.name,
+      username: parsedPayload.data.username,
       email: parsedPayload.data.email,
       password: parsedPayload.data.password,
+      wantsToPostArticles,
+      merchantProfile: wantsToPostArticles
+        ? {
+            shopName,
+            shopDomain,
+            shopDescription,
+            sector,
+            country,
+          }
+        : undefined,
     };
 
     const response = await fetch("/api/auth/register", {
@@ -71,9 +120,12 @@ export default function SignUpPage() {
     setIsSubmitting(false);
     setSuccessMessage(data.message || "Compte cree. Verifiez votre email pour activer votre compte.");
     setName("");
+    setUsername("");
     setEmail("");
     setPassword("");
     setConfirmPassword("");
+    setShopName("");
+    setShopDescription("");
   };
 
   return (
@@ -119,7 +171,7 @@ export default function SignUpPage() {
                 onChange={(event) => {
                   const nextName = event.target.value;
                   setName(nextName);
-                  validateField("name", { name: nextName, email, password, confirmPassword });
+                  validateField("name", { name: nextName, username, email, password, confirmPassword });
                 }}
                 required
                 minLength={3}
@@ -130,6 +182,24 @@ export default function SignUpPage() {
               {fieldErrors.name && <span className="mt-2 block text-xs font-semibold text-red-500">{fieldErrors.name}</span>}
             </label>
             <label className="block">
+              <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Username</span>
+              <Input
+                value={username}
+                onChange={(event) => {
+                  const nextUsername = event.target.value;
+                  setUsername(nextUsername);
+                  validateField("username", { name, username: nextUsername, email, password, confirmPassword });
+                }}
+                required
+                minLength={3}
+                maxLength={40}
+                aria-invalid={Boolean(fieldErrors.username)}
+                className="h-12 rounded-xl border-stone-200 bg-white"
+                placeholder="maya.store"
+              />
+              {fieldErrors.username && <span className="mt-2 block text-xs font-semibold text-red-500">{fieldErrors.username}</span>}
+            </label>
+            <label className="block">
               <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Email</span>
               <Input
                 type="email"
@@ -137,7 +207,7 @@ export default function SignUpPage() {
                 onChange={(event) => {
                   const nextEmail = event.target.value;
                   setEmail(nextEmail);
-                  validateField("email", { name, email: nextEmail, password, confirmPassword });
+                  validateField("email", { name, username, email: nextEmail, password, confirmPassword });
                 }}
                 required
                 aria-invalid={Boolean(fieldErrors.email)}
@@ -153,9 +223,9 @@ export default function SignUpPage() {
                 onChange={(event) => {
                   const nextPassword = event.target.value;
                   setPassword(nextPassword);
-                  validateField("password", { name, email, password: nextPassword, confirmPassword });
+                  validateField("password", { name, username, email, password: nextPassword, confirmPassword });
                   if (confirmPassword) {
-                    validateField("confirmPassword", { name, email, password: nextPassword, confirmPassword });
+                    validateField("confirmPassword", { name, username, email, password: nextPassword, confirmPassword });
                   }
                 }}
                 required
@@ -174,7 +244,7 @@ export default function SignUpPage() {
                 onChange={(event) => {
                   const nextConfirmPassword = event.target.value;
                   setConfirmPassword(nextConfirmPassword);
-                  validateField("confirmPassword", { name, email, password, confirmPassword: nextConfirmPassword });
+                  validateField("confirmPassword", { name, username, email, password, confirmPassword: nextConfirmPassword });
                 }}
                 required
                 minLength={7}
@@ -186,6 +256,66 @@ export default function SignUpPage() {
                 <span className="mt-2 block text-xs font-semibold text-red-500">{fieldErrors.confirmPassword}</span>
               )}
             </label>
+
+            <button
+              type="button"
+              onClick={() => setWantsToPostArticles((current) => !current)}
+              className={`flex w-full items-center justify-between rounded-2xl border px-4 py-4 text-left transition ${
+                wantsToPostArticles
+                  ? "border-[#8d5f9e]/40 bg-[#8d5f9e]/10 text-[#4d3158]"
+                  : "border-stone-200 bg-white/70 text-stone-500"
+              }`}
+            >
+              <span className="flex items-center gap-3">
+                <span className="flex size-10 items-center justify-center rounded-xl bg-white text-[#8d5f9e]">
+                  <Store size={18} />
+                </span>
+                <span>
+                  <span className="block text-[11px] font-black uppercase tracking-[0.2em]">Post articles on VioletBeam</span>
+                  <span className="mt-1 block text-xs">For Shopify merchants who want their products in the marketplace.</span>
+                </span>
+              </span>
+              <span className={`h-5 w-5 rounded-full border ${wantsToPostArticles ? "border-[#8d5f9e] bg-[#8d5f9e]" : "border-stone-300"}`} />
+            </button>
+
+            {wantsToPostArticles && (
+              <div className="rounded-[28px] border border-[#8d5f9e]/20 bg-white/70 p-5 shadow-inner shadow-purple-900/5">
+                <div className="mb-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.22em] text-[#8d5f9e]">
+                  <Building2 size={14} />
+                  Merchant details
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="block">
+                    <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Shop name</span>
+                    <Input value={shopName} onChange={(event) => setShopName(event.target.value)} className="h-12 rounded-xl border-stone-200 bg-white" />
+                    {fieldErrors.shopName && <span className="mt-2 block text-xs font-semibold text-red-500">{fieldErrors.shopName}</span>}
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Shopify URL</span>
+                    <Input value={shopDomain} onChange={(event) => setShopDomain(event.target.value)} className="h-12 rounded-xl border-stone-200 bg-white" placeholder="your-store.myshopify.com" />
+                    {fieldErrors.shopDomain && <span className="mt-2 block text-xs font-semibold text-red-500">{fieldErrors.shopDomain}</span>}
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Sector</span>
+                    <Input value={sector} onChange={(event) => setSector(event.target.value)} className="h-12 rounded-xl border-stone-200 bg-white" />
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Country</span>
+                    <Input value={country} onChange={(event) => setCountry(event.target.value)} className="h-12 rounded-xl border-stone-200 bg-white" />
+                  </label>
+                  <label className="block md:col-span-2">
+                    <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Shop description</span>
+                    <textarea
+                      value={shopDescription}
+                      onChange={(event) => setShopDescription(event.target.value)}
+                      rows={4}
+                      className="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm outline-none focus:border-[#8d5f9e]"
+                      placeholder="Tell us what you sell and who your products are for."
+                    />
+                  </label>
+                </div>
+              </div>
+            )}
           </div>
 
           {error && <p className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-500">{error}</p>}
