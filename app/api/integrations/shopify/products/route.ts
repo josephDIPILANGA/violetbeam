@@ -164,7 +164,10 @@ export async function POST(request: Request) {
     const price = Number(payload.price);
     const imageUrl = cleanText(payload.imageUrl);
     const vendor = cleanText(payload.vendor) || "Shopify merchant";
-    const shopDomain = cleanText(payload.shopDomain);
+    const shopDomain = cleanText(payload.shopDomain)
+      .toLowerCase()
+      .replace(/^https?:\/\//, "")
+      .replace(/\/.*$/, "");
     const shopifyProductUrl = cleanText(payload.shopifyProductUrl);
     const category = slugifyCatalogText(cleanText(payload.category) || "fashion") || "fashion";
 
@@ -175,6 +178,35 @@ export async function POST(request: Request) {
             "Title, description, positive price, and imageUrl are required.",
         },
         { status: 400 },
+      );
+    }
+
+    if (!shopDomain) {
+      return json({ error: "shopDomain is required." }, { status: 400 });
+    }
+
+    const merchantProfile = await prisma.merchantProfile.findUnique({
+      where: {
+        shopDomain,
+      },
+      select: {
+        approvedForPosting: true,
+        user: {
+          select: {
+            emailVerified: true,
+          },
+        },
+      },
+    });
+
+    if (!merchantProfile?.approvedForPosting || !merchantProfile.user.emailVerified) {
+      return json(
+        {
+          error:
+            "A verified VioletBeam merchant account is required before adding Shopify products.",
+          authRequired: true,
+        },
+        { status: 403 },
       );
     }
 

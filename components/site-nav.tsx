@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { Bot, Images, Layers, LogIn, LogOut, Menu, Shirt, Sparkles, Store, UserRound, WandSparkles, X } from "lucide-react";
+import { Bot, Images, Layers, LogIn, LogOut, Menu, Settings, Shirt, Sparkles, Store, UserRound, WandSparkles, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -87,14 +87,14 @@ export default function SiteNav() {
         <div className="ml-auto flex shrink-0 items-center gap-2">
           {status === "authenticated" && user ? (
             <>
-            <div className="hidden items-center gap-3 rounded-lg bg-white/60 px-3 py-1.5 ring-1 ring-white/70 sm:flex">
+            <Link href="/account" className="hidden items-center gap-3 rounded-lg bg-white/60 px-3 py-1.5 ring-1 ring-white/70 transition-colors hover:bg-white sm:flex">
               <span className="flex size-8 items-center justify-center overflow-hidden rounded-lg bg-[#f7f1fb] text-[#8d5f9e]">
                 {user.image ? <img src={user.image} alt={userName} className="h-full w-full object-cover" /> : <UserRound size={15} />}
               </span>
               <span className="text-[10px] font-black uppercase tracking-[0.16em] text-stone-500">
                 Hello {userName}
               </span>
-            </div>
+            </Link>
             <button
               type="button"
               onClick={() => signOut({ callbackUrl: "/" })}
@@ -166,6 +166,15 @@ export default function SiteNav() {
 
           <div className="mt-2 border-t border-stone-200/70 pt-3">
             {status === "authenticated" && user ? (
+              <div className="grid gap-2">
+              <Link
+                href="/account"
+                onClick={() => setIsMenuOpen(false)}
+                className="inline-flex h-12 w-full items-center gap-3 rounded-xl bg-white/50 px-4 text-[11px] font-black uppercase tracking-[0.18em] text-stone-500 ring-1 ring-white/70 transition-colors hover:text-[#8d5f9e]"
+              >
+                <Settings size={15} />
+                Account
+              </Link>
               <button
                 type="button"
                 onClick={() => {
@@ -177,6 +186,7 @@ export default function SiteNav() {
                 <LogOut size={15} />
                 Sign out
               </button>
+              </div>
             ) : (
               <div className="grid grid-cols-2 gap-2">
                 <Link
