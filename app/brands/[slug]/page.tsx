@@ -5,6 +5,7 @@ import { ArrowUpRight, ExternalLink, Shirt, Sparkles, Star, Store, Tag } from "l
 
 import { Button } from "@/components/ui/button";
 import { getCatalogModuleMeta } from "@/lib/catalog";
+import { getVisibleArticleWhere } from "@/lib/marketplace-visibility";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -74,6 +75,7 @@ export default async function BrandDetailPage({
       websiteUrl: true,
       popularity: true,
       articles: {
+        where: getVisibleArticleWhere(),
         orderBy: {
           createdAt: "desc",
         },

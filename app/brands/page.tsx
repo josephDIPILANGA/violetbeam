@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowUpRight, Sparkles, Star, Store } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { getVisibleArticleWhere } from "@/lib/marketplace-visibility";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +19,11 @@ export const metadata: Metadata = {
 
 export default async function BrandsPage() {
   const brands = await prisma.brand.findMany({
+    where: {
+      articles: {
+        some: getVisibleArticleWhere(),
+      },
+    },
     orderBy: [
       {
         popularity: "desc",

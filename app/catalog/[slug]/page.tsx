@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowUpRight, ExternalLink, PackageCheck, Shirt, Sparkles, S
 import { Button } from "@/components/ui/button";
 import { getArticleIdFromProductSlug, getArticleProductHref, getArticleProductSlug, getCatalogModuleMeta } from "@/lib/catalog";
 import { getInfluencerPostHref } from "@/lib/influencer-posts";
+import { withVisibleArticles } from "@/lib/marketplace-visibility";
 import { prisma } from "@/lib/prisma";
 import { getAbsoluteUrl } from "@/lib/site-url";
 import { cn } from "@/lib/utils";
@@ -40,9 +41,14 @@ async function getArticle(slug: string) {
   const id = getArticleIdFromProductSlug(slug);
   if (!id) return null;
 
-  return prisma.article.findUnique({
+  return prisma.article.findFirst({
     where: {
-      id,
+      AND: [
+        {
+          id,
+        },
+        withVisibleArticles(),
+      ],
     },
     include: {
       brandRef: true,
@@ -147,7 +153,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const delivery = formatDelivery(article);
   const tryOnHref = `/cabine?module=${encodeURIComponent(article.category)}&article=db-${article.id}`;
   const similarArticles = await prisma.article.findMany({
-    where: {
+    where: withVisibleArticles({
       id: {
         not: article.id,
       },
@@ -155,7 +161,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         { category: article.category },
         article.brandRef?.id ? { brandId: article.brandRef.id } : { brand: article.brand || undefined },
       ],
-    },
+    }),
     orderBy: [
       {
         rating: "desc",

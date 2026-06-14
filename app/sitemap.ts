@@ -3,6 +3,7 @@ import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
 import { getArticleProductHref } from "@/lib/catalog";
 import { getInfluencerPostHref } from "@/lib/influencer-posts";
+import { getVisibleArticleWhere } from "@/lib/marketplace-visibility";
 import { getAbsoluteUrl } from "@/lib/site-url";
 import { InfluencerPostStatus } from "@prisma/client";
 import { CATALOG_ITEMS_PER_PAGE, getCatalogPageHref } from "./catalog/catalog-data";
@@ -13,6 +14,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
   const [articles, brands, categories, influencers, influencerPosts] = await Promise.all([
     prisma.article.findMany({
+      where: getVisibleArticleWhere(),
       select: {
         id: true,
         title: true,
@@ -27,6 +29,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }),
     prisma.article.groupBy({
       by: ["category"],
+      where: getVisibleArticleWhere(),
       _max: {
         updatedAt: true,
       },

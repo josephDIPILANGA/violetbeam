@@ -95,6 +95,13 @@ export default function SiteNav() {
                 Hello {userName}
               </span>
             </Link>
+            <Link
+              href="/merchant"
+              className="hidden h-10 items-center gap-2 rounded-lg px-3 text-[10px] font-black uppercase tracking-[0.16em] text-stone-500 transition-colors hover:bg-white/65 hover:text-[#8d5f9e] lg:inline-flex"
+            >
+              <Store size={13} />
+              Merchant
+            </Link>
             <button
               type="button"
               onClick={() => signOut({ callbackUrl: "/" })}
@@ -174,6 +181,14 @@ export default function SiteNav() {
               >
                 <Settings size={15} />
                 Account
+              </Link>
+              <Link
+                href="/merchant"
+                onClick={() => setIsMenuOpen(false)}
+                className="inline-flex h-12 w-full items-center gap-3 rounded-xl bg-white/50 px-4 text-[11px] font-black uppercase tracking-[0.18em] text-stone-500 ring-1 ring-white/70 transition-colors hover:text-[#8d5f9e]"
+              >
+                <Store size={15} />
+                Merchant
               </Link>
               <button
                 type="button"

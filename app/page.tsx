@@ -18,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { getArticleProductHref, getCatalogModuleMeta } from "@/lib/catalog";
 import { normalizeCompositionItems } from "@/lib/compositions";
+import { getVisibleArticleWhere } from "@/lib/marketplace-visibility";
 import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = {
@@ -85,6 +86,7 @@ async function loadHomePageData() {
     },
   });
   const articlesQuery = prisma.article.findMany({
+    where: getVisibleArticleWhere(),
     orderBy: {
       createdAt: "desc",
     },

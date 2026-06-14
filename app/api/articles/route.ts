@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { getCatalogModuleMeta, type CatalogModule } from "@/lib/catalog";
+import { getVisibleArticleWhere } from "@/lib/marketplace-visibility";
 
 export async function GET() {
   const articles = await prisma.article.findMany({
+    where: getVisibleArticleWhere(),
     orderBy: [
       {
         category: "asc",

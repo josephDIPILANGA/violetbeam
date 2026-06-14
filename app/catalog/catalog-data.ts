@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getCatalogModuleMeta, type CatalogArticle } from "@/lib/catalog";
+import { getVisibleArticleWhere } from "@/lib/marketplace-visibility";
 import type { Prisma } from "@prisma/client";
 
 export const CATALOG_ITEMS_PER_PAGE = 13;
@@ -131,7 +132,7 @@ export function getCatalogPageHref(page: number, filters: CatalogFilters = {}) {
 }
 
 function getCatalogWhere(filters: CatalogFilters): Prisma.ArticleWhereInput {
-  const andFilters: Prisma.ArticleWhereInput[] = [];
+  const andFilters: Prisma.ArticleWhereInput[] = [getVisibleArticleWhere()];
 
   if (filters.category) {
     andFilters.push({ category: filters.category });
@@ -168,7 +169,7 @@ function getCatalogWhere(filters: CatalogFilters): Prisma.ArticleWhereInput {
     andFilters.push({ isOnSale: true });
   }
 
-  return andFilters.length > 0 ? { AND: andFilters } : {};
+  return { AND: andFilters };
 }
 
 function articleMatchesSearch(
@@ -275,6 +276,7 @@ export async function getCatalogPageData(page: number, filters: CatalogFilters =
     }),
     prisma.article.groupBy({
       by: ["category"],
+      where: getVisibleArticleWhere(),
       _count: {
         _all: true,
       },
@@ -283,6 +285,11 @@ export async function getCatalogPageData(page: number, filters: CatalogFilters =
       },
     }),
     prisma.brand.findMany({
+      where: {
+        articles: {
+          some: getVisibleArticleWhere(),
+        },
+      },
       orderBy: [
         {
           articles: {
@@ -307,9 +314,14 @@ export async function getCatalogPageData(page: number, filters: CatalogFilters =
     prisma.article.groupBy({
       by: ["shippingCountry"],
       where: {
-        shippingCountry: {
-          not: null,
-        },
+        AND: [
+          getVisibleArticleWhere(),
+          {
+            shippingCountry: {
+              not: null,
+            },
+          },
+        ],
       },
       _count: {
         _all: true,

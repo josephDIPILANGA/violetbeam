@@ -4,6 +4,7 @@ import { ArrowUpRight, Layers, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { getCatalogModuleMeta, MODULE_ICON_MAP, type ModuleIconName } from "@/lib/catalog";
+import { getVisibleArticleWhere } from "@/lib/marketplace-visibility";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +20,7 @@ export const metadata: Metadata = {
 
 export default async function CategoriesPage() {
   const articles = await prisma.article.findMany({
+    where: getVisibleArticleWhere(),
     orderBy: {
       createdAt: "desc",
     },

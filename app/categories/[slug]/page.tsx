@@ -5,6 +5,7 @@ import { ArrowUpRight, ExternalLink, Layers, Shirt, Sparkles, Tag } from "lucide
 
 import { Button } from "@/components/ui/button";
 import { getCatalogModuleMeta, MODULE_ICON_MAP, type ModuleIconName } from "@/lib/catalog";
+import { withVisibleArticles } from "@/lib/marketplace-visibility";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -17,9 +18,9 @@ export async function generateMetadata({
   const { slug } = await params;
   const meta = getCatalogModuleMeta(slug);
   const count = await prisma.article.count({
-    where: {
+    where: withVisibleArticles({
       category: slug,
-    },
+    }),
   });
 
   if (count === 0) {
@@ -51,9 +52,9 @@ export default async function CategoryDetailPage({
   const meta = getCatalogModuleMeta(slug);
   const Icon = MODULE_ICON_MAP[meta.iconName as ModuleIconName] ?? Layers;
   const articles = await prisma.article.findMany({
-    where: {
+    where: withVisibleArticles({
       category: slug,
-    },
+    }),
     orderBy: {
       createdAt: "desc",
     },
