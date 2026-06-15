@@ -85,54 +85,76 @@ export async function PATCH(request: Request) {
     }
   }
 
-  const user = await prisma.user.update({
-    where: {
-      id: userId,
-    },
-    data: {
-      name,
-      username,
-      image: image || null,
-      merchantProfile: wantsMerchantProfile
-        ? {
-            upsert: {
-              create: {
-                shopName,
-                shopDomain,
-                shopDescription: shopDescription || null,
-                sector: sector || null,
-                country: country || null,
-                platform: "SHOPIFY",
-                wantsMarketplace: true,
-                approvedForPosting: true,
-              },
-              update: {
-                shopName,
-                shopDomain,
-                shopDescription: shopDescription || null,
-                sector: sector || null,
-                country: country || null,
-                wantsMarketplace: true,
-                approvedForPosting: true,
-              },
-            },
-          }
-        : undefined,
-    },
-    select: {
-      id: true,
-      name: true,
-      username: true,
-      image: true,
-      merchantProfile: {
-        select: {
-          id: true,
-          shopName: true,
-          shopDomain: true,
+  const user = await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: {
+        id: userId,
+      },
+      data: {
+        name,
+        username,
+        image: image || null,
+      },
+    });
+
+    if (wantsMerchantProfile) {
+      await tx.merchantProfile.upsert({
+        where: {
+          userId,
+        },
+        create: {
+          userId,
+          shopName,
+          shopDomain,
+          shopDescription: shopDescription || null,
+          sector: sector || null,
+          country: country || null,
+          platform: "SHOPIFY",
+          wantsMarketplace: true,
           approvedForPosting: true,
         },
+        update: {
+          shopName,
+          shopDomain,
+          shopDescription: shopDescription || null,
+          sector: sector || null,
+          country: country || null,
+          wantsMarketplace: true,
+          approvedForPosting: true,
+        },
+      });
+    } else {
+      await tx.merchantProfile.updateMany({
+        where: {
+          userId,
+        },
+        data: {
+          wantsMarketplace: false,
+          approvedForPosting: false,
+        },
+      });
+    }
+
+    return tx.user.findUnique({
+      where: {
+        id: userId,
       },
-    },
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        image: true,
+        merchantProfile: {
+          select: {
+            id: true,
+            shopName: true,
+            shopDomain: true,
+            wantsMarketplace: true,
+            approvedForPosting: true,
+          },
+        },
+      },
+    });
   });
 
   return Response.json({
@@ -140,6 +162,6 @@ export async function PATCH(request: Request) {
     user,
     message: wantsMerchantProfile
       ? "Profil mis a jour. Votre espace marchand est actif."
-      : "Profil mis a jour.",
+      : "Profil mis a jour. L'acces marchand est desactive.",
   });
 }

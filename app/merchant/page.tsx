@@ -18,7 +18,8 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { authOptions } from "@/lib/auth";
-import { getArticleProductHref } from "@/lib/catalog";
+import { getArticleProductHref, slugifyCatalogText } from "@/lib/catalog";
+import { getMerchantPublishingState } from "@/lib/merchant-access";
 import {
   HIDDEN_MARKETPLACE_TAG_NAME,
   HIDDEN_MARKETPLACE_TAG_SLUG,
@@ -67,6 +68,55 @@ function isHidden(article: Pick<MerchantArticle, "tags">) {
   return article.tags.some((entry) => entry.tag.slug === HIDDEN_MARKETPLACE_TAG_SLUG);
 }
 
+function getMerchantArticleOwnershipWhere(shopDomain: string) {
+  const shopDomainSlug = slugifyCatalogText(shopDomain);
+
+  return {
+    AND: [
+      {
+        tags: {
+          some: {
+            tag: {
+              slug: SHOPIFY_MARKETPLACE_TAG_SLUG,
+            },
+          },
+        },
+      },
+      {
+        OR: [
+          {
+            shopUrl: {
+              contains: shopDomain,
+              mode: "insensitive" as const,
+            },
+          },
+          {
+            brandRef: {
+              websiteUrl: {
+                contains: shopDomain,
+                mode: "insensitive" as const,
+              },
+            },
+          },
+          ...(shopDomainSlug
+            ? [
+                {
+                  tags: {
+                    some: {
+                      tag: {
+                        slug: shopDomainSlug,
+                      },
+                    },
+                  },
+                },
+              ]
+            : []),
+        ],
+      },
+    ],
+  };
+}
+
 async function getCurrentMerchantUser() {
   const session = await getServerSession(authOptions);
   const userId = Number(session?.user?.id);
@@ -85,6 +135,7 @@ async function getCurrentMerchantUser() {
       name: true,
       username: true,
       image: true,
+      emailVerified: true,
       merchantProfile: {
         select: {
           shopName: true,
@@ -92,6 +143,7 @@ async function getCurrentMerchantUser() {
           shopDescription: true,
           sector: true,
           country: true,
+          wantsMarketplace: true,
           approvedForPosting: true,
         },
       },
@@ -114,31 +166,28 @@ async function getOwnedArticle(articleId: number, userId: number) {
       merchantProfile: {
         select: {
           shopDomain: true,
+          wantsMarketplace: true,
           approvedForPosting: true,
+          user: {
+            select: {
+              emailVerified: true,
+            },
+          },
         },
       },
     },
   });
 
   const shopDomain = user?.merchantProfile?.shopDomain;
-  if (!shopDomain || !user.merchantProfile?.approvedForPosting) {
-    throw new Error("Merchant access is required.");
+  const merchantStatus = getMerchantPublishingState(user?.merchantProfile ?? null);
+  if (!shopDomain || !merchantStatus.active) {
+    throw new Error(merchantStatus.message);
   }
 
   return prisma.article.findFirst({
     where: {
       id: articleId,
-      shopUrl: {
-        contains: shopDomain,
-        mode: "insensitive",
-      },
-      tags: {
-        some: {
-          tag: {
-            slug: SHOPIFY_MARKETPLACE_TAG_SLUG,
-          },
-        },
-      },
+      ...getMerchantArticleOwnershipWhere(shopDomain),
     },
     select: {
       id: true,
@@ -238,6 +287,17 @@ export async function showMerchantArticle(formData: FormData) {
 export default async function MerchantPage() {
   const user = await getCurrentMerchantUser();
   const merchant = user.merchantProfile;
+  const merchantStatus = getMerchantPublishingState(
+    merchant
+      ? {
+          wantsMarketplace: merchant.wantsMarketplace,
+          approvedForPosting: merchant.approvedForPosting,
+          user: {
+            emailVerified: user.emailVerified,
+          },
+        }
+      : null,
+  );
 
   if (!merchant) {
     return (
@@ -271,20 +331,39 @@ export default async function MerchantPage() {
     );
   }
 
+  if (!merchantStatus.active) {
+    return (
+      <main className="min-h-screen bg-[#FDFBFF] px-6 py-16 text-[#1C1C1C] lg:px-10">
+        <section className="mx-auto max-w-5xl rounded-[40px] border border-white/80 bg-white/70 p-8 shadow-2xl shadow-purple-900/5 backdrop-blur-2xl lg:p-12">
+          <div className="flex size-16 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
+            <TriangleAlert size={28} />
+          </div>
+          <p className="mt-8 text-[10px] font-black uppercase tracking-[0.28em] text-[#8d5f9e]">Merchant access</p>
+          <h1 className="mt-3 font-serif text-6xl italic leading-none md:text-7xl">Merchant access paused</h1>
+          <p className="mt-6 max-w-2xl text-base leading-8 text-stone-500">
+            {merchantStatus.message} Modifiez votre profil ou verifiez votre email avant de publier ou gerer des articles Shopify sur VioletBeam.
+          </p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Button asChild className="h-12 rounded-full bg-[#1C1C1C] px-6 text-[10px] font-black uppercase tracking-[0.2em] text-white hover:bg-[#8d5f9e]">
+              <Link href="/account">
+                <Pencil size={15} />
+                Update profile
+              </Link>
+            </Button>
+            <Button asChild className="h-12 rounded-full bg-white px-6 text-[10px] font-black uppercase tracking-[0.2em] text-[#4f365f] ring-1 ring-[#C9A0CD]/25 hover:bg-[#fbf7ff]">
+              <Link href="/catalog">
+                Browse catalog
+                <ArrowUpRight size={15} />
+              </Link>
+            </Button>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   const articles = (await prisma.article.findMany({
-    where: {
-      shopUrl: {
-        contains: merchant.shopDomain,
-        mode: "insensitive",
-      },
-      tags: {
-        some: {
-          tag: {
-            slug: SHOPIFY_MARKETPLACE_TAG_SLUG,
-          },
-        },
-      },
-    },
+    where: getMerchantArticleOwnershipWhere(merchant.shopDomain),
     orderBy: {
       createdAt: "desc",
     },

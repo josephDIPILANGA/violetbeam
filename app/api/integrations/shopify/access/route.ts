@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { getMerchantPublishingState } from "@/lib/merchant-access";
 import { prisma } from "@/lib/prisma";
 
 function getBearerToken(request: Request) {
@@ -48,6 +49,7 @@ export async function POST(request: Request) {
     select: {
       id: true,
       approvedForPosting: true,
+      wantsMarketplace: true,
       user: {
         select: {
           emailVerified: true,
@@ -56,10 +58,11 @@ export async function POST(request: Request) {
     },
   });
 
-  const connected = Boolean(profile?.approvedForPosting && profile.user.emailVerified);
+  const merchantStatus = getMerchantPublishingState(profile);
 
   return NextResponse.json({
-    connected,
+    connected: merchantStatus.active,
+    merchantStatus,
     shopDomain,
     signInUrl: buildMerchantUrl("/merchant/shopify/connect", shopDomain, request),
     signUpUrl: buildMerchantUrl("/sign-up", shopDomain, request),

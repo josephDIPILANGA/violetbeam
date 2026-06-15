@@ -5,6 +5,7 @@ import { CheckCircle2, LogIn, Store, UserCog } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { authOptions } from "@/lib/auth";
+import { getMerchantPublishingState } from "@/lib/merchant-access";
 import { prisma } from "@/lib/prisma";
 
 type PageProps = {
@@ -42,6 +43,13 @@ export default async function ShopifyMerchantConnectPage({ searchParams }: PageP
     where: { shopDomain },
     select: {
       userId: true,
+      wantsMarketplace: true,
+      approvedForPosting: true,
+      user: {
+        select: {
+          emailVerified: true,
+        },
+      },
     },
     }),
     prisma.user.findUnique({
@@ -50,6 +58,13 @@ export default async function ShopifyMerchantConnectPage({ searchParams }: PageP
         merchantProfile: {
           select: {
             shopDomain: true,
+            wantsMarketplace: true,
+            approvedForPosting: true,
+            user: {
+              select: {
+                emailVerified: true,
+              },
+            },
           },
         },
       },
@@ -57,6 +72,7 @@ export default async function ShopifyMerchantConnectPage({ searchParams }: PageP
   ]);
 
   const isLinkedToCurrentUser = Boolean(existingForShop && existingForShop.userId === userId);
+  const currentMerchantStatus = getMerchantPublishingState(currentUser?.merchantProfile ?? null);
   const isLinkedToOtherUser = Boolean(existingForShop && existingForShop.userId !== userId);
   const needsMerchantProfile = !currentUser?.merchantProfile && !existingForShop;
   const merchantShopMismatch =
@@ -78,7 +94,9 @@ export default async function ShopifyMerchantConnectPage({ searchParams }: PageP
         <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#8d5f9e]">Shopify merchant access</p>
         <h1 className="mt-3 font-serif text-5xl italic tracking-tight">
           {isLinkedToCurrentUser
-            ? "Boutique connectee"
+            ? currentMerchantStatus.active
+              ? "Boutique connectee"
+              : "Acces marchand incomplet"
             : merchantShopMismatch
               ? "Profil marchand different"
               : "Boutique deja liee"}
@@ -86,7 +104,9 @@ export default async function ShopifyMerchantConnectPage({ searchParams }: PageP
 
         <p className="mt-5 text-sm leading-7 text-stone-500">
           {isLinkedToCurrentUser
-            ? `${shopDomain} est liee a votre compte marchand VioletBeam. Vous pouvez retourner dans Shopify et ajouter vos articles a la marketplace.`
+            ? currentMerchantStatus.active
+              ? `${shopDomain} est liee a votre compte marchand VioletBeam. Vous pouvez retourner dans Shopify et ajouter vos articles a la marketplace.`
+              : `${shopDomain} est liee a votre compte, mais ${currentMerchantStatus.message.toLowerCase()}`
             : merchantShopMismatch
               ? `Votre compte marchand est deja lie a ${currentUser?.merchantProfile?.shopDomain}. Modifiez votre profil marchand si vous voulez utiliser ${shopDomain}.`
               : `${shopDomain} est deja liee a un autre compte VioletBeam. Connectez-vous avec le bon compte ou contactez VioletBeam.`}

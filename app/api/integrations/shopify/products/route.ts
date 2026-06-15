@@ -1,7 +1,10 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 
+import { revalidatePath } from "next/cache";
+
 import { prisma } from "@/lib/prisma";
 import { slugifyCatalogText } from "@/lib/catalog";
+import { getMerchantPublishingState } from "@/lib/merchant-access";
 
 type ShopifyMarketplacePayload = {
   title?: string;
@@ -191,6 +194,7 @@ export async function POST(request: Request) {
       },
       select: {
         approvedForPosting: true,
+        wantsMarketplace: true,
         user: {
           select: {
             emailVerified: true,
@@ -198,12 +202,13 @@ export async function POST(request: Request) {
         },
       },
     });
+    const merchantStatus = getMerchantPublishingState(merchantProfile);
 
-    if (!merchantProfile?.approvedForPosting || !merchantProfile.user.emailVerified) {
+    if (!merchantStatus.active) {
       return json(
         {
-          error:
-            "A verified VioletBeam merchant account is required before adding Shopify products.",
+          error: merchantStatus.message,
+          merchantStatus,
           authRequired: true,
         },
         { status: 403 },
@@ -324,6 +329,9 @@ export async function POST(request: Request) {
         },
       });
     }
+
+    revalidatePath("/merchant");
+    revalidatePath("/catalog");
 
     return json({
       ok: true,

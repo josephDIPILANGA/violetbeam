@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { CheckCircle2, ImagePlus, Loader2, Save, Store, UserRound } from "lucide-react";
+import { CheckCircle2, Clock3, ImagePlus, Loader2, Save, ShieldAlert, Store, UserRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ type AccountProfileFormProps = {
     name: string;
     username: string;
     email: string;
+    emailVerified: boolean;
     image: string;
     merchantProfile: {
       shopName: string;
@@ -18,17 +19,73 @@ type AccountProfileFormProps = {
       shopDescription: string;
       sector: string;
       country: string;
+      wantsMarketplace: boolean;
       approvedForPosting: boolean;
     } | null;
   };
   defaultShopDomain?: string;
 };
 
+function getAccountStatus({
+  emailVerified,
+  merchantProfile,
+  wantsMerchantProfile,
+}: {
+  emailVerified: boolean;
+  merchantProfile: AccountProfileFormProps["initialUser"]["merchantProfile"];
+  wantsMerchantProfile: boolean;
+}) {
+  if (!wantsMerchantProfile) {
+    return {
+      label: "Customer",
+      description: "Shopping and try-on access only. Marketplace publishing is disabled.",
+      tone: "neutral",
+      icon: UserRound,
+    };
+  }
+
+  if (!merchantProfile) {
+    return {
+      label: "Merchant paused",
+      description: "Complete and save your merchant details before publishing Shopify products.",
+      tone: "paused",
+      icon: ShieldAlert,
+    };
+  }
+
+  if (!emailVerified) {
+    return {
+      label: "Email not verified",
+      description: "Verify your VioletBeam email before publishing Shopify products.",
+      tone: "warning",
+      icon: Clock3,
+    };
+  }
+
+  if (!merchantProfile.wantsMarketplace || !merchantProfile.approvedForPosting) {
+    return {
+      label: "Merchant paused",
+      description: "Your merchant profile exists, but marketplace publishing is currently disabled.",
+      tone: "paused",
+      icon: ShieldAlert,
+    };
+  }
+
+  return {
+    label: "Merchant active",
+    description: "This account can publish Shopify products to VioletBeam.",
+    tone: "active",
+    icon: CheckCircle2,
+  };
+}
+
 export default function AccountProfileForm({ initialUser, defaultShopDomain = "" }: AccountProfileFormProps) {
   const [name, setName] = useState(initialUser.name);
   const [username, setUsername] = useState(initialUser.username);
   const [image, setImage] = useState(initialUser.image);
-  const [wantsMerchantProfile, setWantsMerchantProfile] = useState(Boolean(initialUser.merchantProfile || defaultShopDomain));
+  const [wantsMerchantProfile, setWantsMerchantProfile] = useState(
+    Boolean(initialUser.merchantProfile?.wantsMarketplace || defaultShopDomain),
+  );
   const [shopName, setShopName] = useState(
     initialUser.merchantProfile?.shopName || defaultShopDomain.replace(".myshopify.com", ""),
   );
@@ -36,9 +93,24 @@ export default function AccountProfileForm({ initialUser, defaultShopDomain = ""
   const [shopDescription, setShopDescription] = useState(initialUser.merchantProfile?.shopDescription || "");
   const [sector, setSector] = useState(initialUser.merchantProfile?.sector || "Fashion");
   const [country, setCountry] = useState(initialUser.merchantProfile?.country || "France");
+  const [merchantProfile, setMerchantProfile] = useState(initialUser.merchantProfile);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const accountStatus = getAccountStatus({
+    emailVerified: initialUser.emailVerified,
+    merchantProfile,
+    wantsMerchantProfile,
+  });
+  const StatusIcon = accountStatus.icon;
+  const statusToneClass =
+    accountStatus.tone === "active"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : accountStatus.tone === "warning"
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : accountStatus.tone === "paused"
+          ? "border-red-100 bg-red-50 text-red-600"
+          : "border-stone-200 bg-white/70 text-stone-500";
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -77,6 +149,7 @@ export default function AccountProfileForm({ initialUser, defaultShopDomain = ""
     }
 
     setSuccess(data?.message || "Profil mis a jour.");
+    setMerchantProfile(data?.user?.merchantProfile || null);
   };
 
   return (
@@ -91,6 +164,17 @@ export default function AccountProfileForm({ initialUser, defaultShopDomain = ""
           <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#8d5f9e]/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#8d5f9e]">
             {wantsMerchantProfile ? <Store size={13} /> : <UserRound size={13} />}
             {wantsMerchantProfile ? "Merchant account" : "Customer account"}
+          </div>
+          <div className={`mt-5 w-full rounded-3xl border px-4 py-4 text-left ${statusToneClass}`}>
+            <div className="flex items-start gap-3">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-white/80">
+                <StatusIcon size={18} />
+              </span>
+              <span>
+                <span className="block text-[10px] font-black uppercase tracking-[0.22em]">{accountStatus.label}</span>
+                <span className="mt-1 block text-sm leading-6 opacity-80">{accountStatus.description}</span>
+              </span>
+            </div>
           </div>
         </div>
       </section>

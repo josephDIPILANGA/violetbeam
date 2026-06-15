@@ -42,6 +42,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
     },
     select: {
       email: true,
+      emailVerified: true,
       name: true,
       username: true,
       image: true,
@@ -52,6 +53,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
           shopDescription: true,
           sector: true,
           country: true,
+          wantsMarketplace: true,
           approvedForPosting: true,
         },
       },
@@ -73,6 +75,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
           defaultShopDomain={defaultShopDomain}
           initialUser={{
             email: user.email,
+            emailVerified: Boolean(user.emailVerified),
             name: user.name || "",
             username: user.username || "",
             image: user.image || "",
@@ -83,6 +86,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
                   shopDescription: user.merchantProfile.shopDescription || "",
                   sector: user.merchantProfile.sector || "",
                   country: user.merchantProfile.country || "",
+                  wantsMarketplace: user.merchantProfile.wantsMarketplace,
                   approvedForPosting: user.merchantProfile.approvedForPosting,
                 }
               : null,
