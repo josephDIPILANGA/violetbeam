@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 import Providers from "@/app/providers";
 import GlobalSearchBar from "@/components/global-search-bar";
@@ -72,6 +73,10 @@ export default function RootLayout({
           <SiteFooter />
         </Providers>
       </body>
+      <Script
+        src="https://s.skimresources.com/js/304844X1793033.skimlinks.js"
+        strategy="afterInteractive"
+      />
     </html>
   );
 }
