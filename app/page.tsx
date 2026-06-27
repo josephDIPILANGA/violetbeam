@@ -8,9 +8,10 @@ import {
   Shirt,
   SlidersHorizontal,
   Sparkles,
-  Star,
   Store,
   Truck,
+  UserRound,
+  UsersRound,
   WandSparkles,
   Zap,
 } from "lucide-react";
@@ -65,9 +66,11 @@ const quickSearches = [
 ];
 
 const benefitLinks = [
-  { label: "Best deals", href: "/catalog?onSale=1&sort=newest", icon: BadgePercent },
+  { label: "Homme", href: "/catalog?gender=men", icon: UserRound },
+  { label: "Femme", href: "/catalog?gender=women", icon: Sparkles },
+  { label: "Unisexe", href: "/catalog?gender=unisex", icon: UsersRound },
   { label: "Free shipping", href: "/catalog?freeShipping=1&sort=newest", icon: Truck },
-  { label: "Top rated", href: "/catalog?minRating=4&sort=top-rated", icon: Star },
+  { label: "Best deals", href: "/catalog?onSale=1&sort=newest", icon: BadgePercent },
   { label: "Fast delivery", href: "/catalog?sort=delivery-fast", icon: Zap },
 ];
 
@@ -147,7 +150,7 @@ export default async function HomePage() {
           </p>
           <p className="mt-5 max-w-xl text-base leading-8 text-stone-500">
             Explorez la mode par style, marque, prix, livraison, notes et avantages. VioletBeam vous aide a chercher plus vite,
-            comparer plus clairement, puis visualiser les looks avec l'essayage IA quand vous etes pret.
+            comparer plus clairement, puis visualiser les looks avec l&apos;essayage IA quand vous etes pret.
           </p>
 
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
@@ -190,7 +193,7 @@ export default async function HomePage() {
                     href={benefit.href}
                     className="inline-flex h-9 items-center gap-2 rounded-full border border-white/80 bg-white/65 px-3 text-[9px] font-black uppercase tracking-[0.16em] text-stone-500 transition-colors hover:bg-white hover:text-[#8d5f9e]"
                   >
-                    <Icon size={12} className={benefit.label === "Top rated" ? "fill-current" : ""} />
+                    <Icon size={12} />
                     {benefit.label}
                   </Link>
                 );
@@ -227,7 +230,7 @@ export default async function HomePage() {
         <div className="mb-8 flex flex-col justify-between gap-5 md:flex-row md:items-end">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#8d5f9e]">Featured looks</p>
-            <h2 className="mt-3 font-serif text-6xl italic leading-none text-[#1C1C1C]">Looks pour s'inspirer</h2>
+            <h2 className="mt-3 font-serif text-6xl italic leading-none text-[#1C1C1C]">Looks pour s&apos;inspirer</h2>
           </div>
           <Button asChild className="h-12 rounded-full bg-[#1C1C1C] px-6 text-[10px] font-black uppercase tracking-[0.22em] text-white hover:bg-[#8d5f9e]">
             <Link href="/lookbook">
@@ -387,7 +390,7 @@ export default async function HomePage() {
           <div className="flex flex-col justify-between gap-8">
             <p className="text-base leading-8 text-stone-500">
               VioletBeam prepare un espace pour les boutiques et marques : catalogue enrichi, recherche par avantages, pages produits SEO,
-              lookbooks IA et option try-on pour aider les visiteurs a passer de l'inspiration a l'achat.
+              lookbooks IA et option try-on pour aider les visiteurs a passer de l&apos;inspiration a l&apos;achat.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row">
               <Button asChild className="h-12 rounded-full bg-[#1C1C1C] px-6 text-[10px] font-black uppercase tracking-[0.22em] text-white hover:bg-[#8d5f9e]">

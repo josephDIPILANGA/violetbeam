@@ -59,7 +59,7 @@ export default async function CatalogPaginatedPage({
     redirect(getCatalogPageHref(1, filters));
   }
 
-  const { articles, categories, brands, shippingCountries, pagination } = await getCatalogPageData(pageNumber, filters);
+  const { articles, categories, brands, pagination } = await getCatalogPageData(pageNumber, filters);
 
   if (pageNumber > pagination.pageCount) {
     notFound();
@@ -70,7 +70,6 @@ export default async function CatalogPaginatedPage({
       articles={articles}
       brands={brands}
       categories={categories}
-      shippingCountries={shippingCountries}
       filters={filters}
       pagination={pagination}
     />

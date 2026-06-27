@@ -81,6 +81,11 @@ export const CATALOG_MODULE_META: Record<string, ModuleMeta> = {
     iconName: "layers",
     accent: "bg-gradient-to-br from-[#fcfaff] via-[#f0e8f6] to-[#e8e4df]",
   },
+  outerwear: {
+    label: "Vestes",
+    iconName: "layers",
+    accent: "bg-gradient-to-br from-[#fbf8ff] via-[#eee8f4] to-[#e7e4df]",
+  },
   bottoms: {
     label: "Pantalons",
     iconName: "layers",
@@ -100,6 +105,11 @@ export const CATALOG_MODULE_META: Record<string, ModuleMeta> = {
     label: "Accessoires",
     iconName: "watch",
     accent: "bg-gradient-to-br from-[#fcfaff] via-[#f2ebf8] to-[#e8e4df]",
+  },
+  "fitness-equipment": {
+    label: "Equipement sport",
+    iconName: "layers",
+    accent: "bg-gradient-to-br from-[#fbf9ff] via-[#eeeef8] to-[#e4e8df]",
   },
   dresses: {
     label: "Robes",

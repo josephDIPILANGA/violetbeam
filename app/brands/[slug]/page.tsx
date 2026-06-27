@@ -84,6 +84,7 @@ export default async function BrandDetailPage({
           title: true,
           description: true,
           price: true,
+          shippingCurrency: true,
           category: true,
           imageUrls: true,
           shopUrl: true,
@@ -192,7 +193,7 @@ export default async function BrandDetailPage({
                         {article.description || "Description à venir."}
                       </p>
                       <p className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-[#8d5f9e]">
-                        {new Intl.NumberFormat("fr-FR", { style: "currency", currency: "USD" }).format(Number(article.price))}
+                        {new Intl.NumberFormat("fr-FR", { style: "currency", currency: article.shippingCurrency }).format(Number(article.price))}
                       </p>
                       <div className="mt-6 flex gap-3">
                         <Button asChild className="h-11 flex-1 rounded-full bg-[#1C1C1C] text-[9px] font-black uppercase tracking-[0.2em] text-white hover:bg-[#8d5f9e]">
@@ -216,7 +217,7 @@ export default async function BrandDetailPage({
             </div>
           ) : (
             <div className="flex min-h-80 items-center justify-center rounded-[40px] border-2 border-dashed border-stone-200 bg-white/50 text-center">
-              <p className="text-sm font-semibold text-stone-400">Aucun article n'est encore lié à cette marque.</p>
+              <p className="text-sm font-semibold text-stone-400">Aucun article n&apos;est encore lié à cette marque.</p>
             </div>
           )}
         </section>

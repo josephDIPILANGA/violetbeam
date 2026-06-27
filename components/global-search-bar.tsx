@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BadgePercent, Search, Star, Truck, Zap } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { BadgePercent, Search, Sparkles, Truck, UserRound, UsersRound, Zap } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -20,9 +21,9 @@ const hiddenPathPrefixes = [
 export default function GlobalSearchBar() {
   const pathname = usePathname();
   const [freeShipping, setFreeShipping] = useState(false);
-  const [topRated, setTopRated] = useState(false);
-  const [fastDelivery, setFastDelivery] = useState(false);
   const [onSale, setOnSale] = useState(false);
+  const [fastDelivery, setFastDelivery] = useState(false);
+  const [gender, setGender] = useState<"men" | "women" | "unisex" | undefined>();
 
   const isCatalogSearchPage = pathname === "/catalog" || pathname.startsWith("/catalog/page/");
   const isHidden = isCatalogSearchPage || hiddenPathPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
@@ -31,12 +32,29 @@ export default function GlobalSearchBar() {
     return <div className="h-16 shrink-0" aria-hidden="true" />;
   }
 
-  const quickFilters = [
+  const quickFilters: Array<{
+    label: string;
+    active: boolean;
+    icon: LucideIcon;
+    onClick: () => void;
+  }> = [
     {
-      label: "Deals",
-      active: onSale,
-      icon: BadgePercent,
-      onClick: () => setOnSale((current) => !current),
+      label: "Homme",
+      active: gender === "men",
+      icon: UserRound,
+      onClick: () => setGender((current) => (current === "men" ? undefined : "men")),
+    },
+    {
+      label: "Femme",
+      active: gender === "women",
+      icon: Sparkles,
+      onClick: () => setGender((current) => (current === "women" ? undefined : "women")),
+    },
+    {
+      label: "Unisexe",
+      active: gender === "unisex",
+      icon: UsersRound,
+      onClick: () => setGender((current) => (current === "unisex" ? undefined : "unisex")),
     },
     {
       label: "Free shipping",
@@ -45,13 +63,13 @@ export default function GlobalSearchBar() {
       onClick: () => setFreeShipping((current) => !current),
     },
     {
-      label: "Top rated",
-      active: topRated,
-      icon: Star,
-      onClick: () => setTopRated((current) => !current),
+      label: "Best deals",
+      active: onSale,
+      icon: BadgePercent,
+      onClick: () => setOnSale((current) => !current),
     },
     {
-      label: "Fast",
+      label: "Fast delivery",
       active: fastDelivery,
       icon: Zap,
       onClick: () => setFastDelivery((current) => !current),
@@ -62,11 +80,10 @@ export default function GlobalSearchBar() {
     <>
       <section className="fixed left-0 right-0 top-16 z-[105] border-b border-white/70 bg-white/70 shadow-[0_18px_50px_-32px_rgba(92,54,118,0.55)] backdrop-blur-2xl">
         <form action="/catalog" className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-2 lg:flex-row lg:items-center lg:px-8">
+          {gender ? <input type="hidden" name="gender" value={gender} /> : null}
           {freeShipping ? <input type="hidden" name="freeShipping" value="1" /> : null}
           {onSale ? <input type="hidden" name="onSale" value="1" /> : null}
-          {topRated ? <input type="hidden" name="minRating" value="4" /> : null}
-          {topRated ? <input type="hidden" name="sort" value="top-rated" /> : null}
-          {fastDelivery && !topRated ? <input type="hidden" name="sort" value="delivery-fast" /> : null}
+          {fastDelivery ? <input type="hidden" name="sort" value="delivery-fast" /> : null}
 
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8d5f9e]" size={16} strokeWidth={2.5} />
@@ -93,7 +110,7 @@ export default function GlobalSearchBar() {
                       : "border-white/70 bg-white/60 text-stone-500 hover:bg-white/80 hover:text-[#8d5f9e]",
                   )}
                 >
-                  <Icon size={13} className={cn(filter.active && filter.label === "Top rated" ? "fill-current" : "")} />
+                  <Icon size={13} />
                   {filter.label}
                 </button>
               );

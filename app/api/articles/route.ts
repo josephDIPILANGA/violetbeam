@@ -42,6 +42,7 @@ export async function GET() {
         },
       },
       shopUrl: true,
+      shippingCurrency: true,
     },
   });
 
@@ -50,7 +51,7 @@ export async function GET() {
   for (const article of articles) {
     const moduleId = article.category;
     const meta = getCatalogModuleMeta(moduleId);
-    const module =
+    const catalogModule =
       modulesById.get(moduleId) ??
       ({
         id: moduleId,
@@ -61,7 +62,7 @@ export async function GET() {
         options: [],
       } satisfies CatalogModule);
 
-    module.options.push({
+    catalogModule.options.push({
       id: `db-${article.id}`,
       name: article.title,
       brand: article.brandRef?.name || article.brand || "Cabine Market",
@@ -69,7 +70,7 @@ export async function GET() {
       prompt: article.description || `${article.title} par ${article.brandRef?.name || article.brand || "Cabine Market"}`,
       description: article.description || undefined,
       price: Number(article.price),
-      currency: "USD",
+      currency: article.shippingCurrency,
       shopUrl: article.shopUrl || undefined,
       brandId: article.brandRef?.id,
       brandSlug: article.brandRef?.slug,
@@ -79,7 +80,7 @@ export async function GET() {
       tags: article.tags.map((entry) => entry.tag.name || entry.tag.slug),
     });
 
-    modulesById.set(moduleId, module);
+    modulesById.set(moduleId, catalogModule);
   }
 
   return Response.json({

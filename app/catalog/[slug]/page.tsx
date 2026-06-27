@@ -192,7 +192,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
     offers: {
       "@type": "Offer",
       price: Number(article.price),
-      priceCurrency: "USD",
+      priceCurrency: article.shippingCurrency,
       availability: "https://schema.org/InStock",
       url: getAbsoluteUrl(getArticleProductHref(article)),
     },
@@ -260,7 +260,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
               {article.title}
             </h1>
             <p className="mt-5 text-3xl font-black text-[#8d5f9e]">
-              {formatPrice(Number(article.price), "USD")}
+              {formatPrice(Number(article.price), article.shippingCurrency)}
             </p>
 
             {benefitBadges.length > 0 ? (
@@ -396,7 +396,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                   )}
                   <div className="p-5">
                     <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#8d5f9e]">
-                      {formatPrice(Number(similar.price), "USD")}
+                      {formatPrice(Number(similar.price), similar.shippingCurrency)}
                     </p>
                     <h3 className="mt-2 truncate font-serif text-2xl italic text-[#1C1C1C]">{similar.title}</h3>
                     <p className="mt-1 truncate text-[10px] font-black uppercase tracking-[0.18em] text-stone-400">
@@ -426,7 +426,7 @@ function DetailCard({ icon: Icon, title, text }: { icon: typeof Truck; title: st
 }
 
 function TagList({ title, items }: { title: string; items: string[] }) {
-  const visibleItems = items.filter(Boolean).slice(0, 8);
+  const visibleItems = Array.from(new Set(items.filter(Boolean))).slice(0, 8);
 
   return (
     <div>

@@ -63,6 +63,7 @@ export default async function CategoryDetailPage({
       title: true,
       description: true,
       price: true,
+      shippingCurrency: true,
       category: true,
       imageUrls: true,
       brand: true,
@@ -98,7 +99,7 @@ export default async function CategoryDetailPage({
               {meta.label}
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-8 text-stone-500">
-              Découvrez les articles de cette catégorie et envoyez une pièce directement dans la cabine pour l'essayer.
+              Découvrez les articles de cette catégorie et envoyez une pièce directement dans la cabine pour l&apos;essayer.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <span className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-[9px] font-black uppercase tracking-[0.22em] text-[#8d5f9e] ring-1 ring-[#C9A0CD]/20">
@@ -138,7 +139,7 @@ export default async function CategoryDetailPage({
                 </p>
                 <p className="mt-4 line-clamp-2 text-sm leading-6 text-stone-500">{article.description || "Description à venir."}</p>
                 <p className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-[#8d5f9e]">
-                  {new Intl.NumberFormat("fr-FR", { style: "currency", currency: "USD" }).format(Number(article.price))}
+                  {new Intl.NumberFormat("fr-FR", { style: "currency", currency: article.shippingCurrency }).format(Number(article.price))}
                 </p>
                 <div className="mt-6 flex gap-3">
                   <Button asChild className="h-11 flex-1 rounded-full bg-[#1C1C1C] text-[9px] font-black uppercase tracking-[0.2em] text-white hover:bg-[#8d5f9e]">

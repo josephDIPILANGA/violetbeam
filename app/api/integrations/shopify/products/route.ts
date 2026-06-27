@@ -336,6 +336,7 @@ export async function POST(request: Request) {
     return json({
       ok: true,
       article,
+      syncAction: existing ? "updated" : "created",
       marketplaceUrl: `/catalog/${article.id}-${slugifyCatalogText(article.title) || "article"}`,
     });
   } catch (error) {

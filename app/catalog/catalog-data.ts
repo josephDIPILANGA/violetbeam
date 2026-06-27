@@ -9,19 +9,25 @@ export const CATALOG_SORT_OPTIONS = [
   "newest",
   "price-asc",
   "price-desc",
-  "top-rated",
   "delivery-fast",
 ] as const;
 
 export type CatalogSortOption = (typeof CATALOG_SORT_OPTIONS)[number];
+export type CatalogGenderFilter = "men" | "women" | "unisex";
+
+const CATALOG_GENDER_FILTERS = ["men", "women", "unisex"] as const;
+const GENDER_TAG_SLUGS: Record<CatalogGenderFilter, string> = {
+  men: "gender-men",
+  women: "gender-women",
+  unisex: "gender-unisex",
+};
 
 export type CatalogFilters = {
   q?: string;
   category?: string;
   brand?: string;
-  shippingCountry?: string;
+  gender?: CatalogGenderFilter;
   freeShipping?: boolean;
-  minRating?: number;
   onSale?: boolean;
   sort?: CatalogSortOption;
 };
@@ -35,12 +41,6 @@ export type CatalogBrandFilter = {
   id: string;
   name: string;
   popularity?: number;
-  count: number;
-};
-
-export type CatalogShippingCountryFilter = {
-  id: string;
-  label: string;
   count: number;
 };
 
@@ -100,15 +100,14 @@ function getCatalogSearchCategory(query: string) {
 
 export function parseCatalogFilters(searchParams: CatalogSearchParams = {}): CatalogFilters {
   const sort = getSingleParam(searchParams, "sort");
-  const minRating = Number.parseFloat(getSingleParam(searchParams, "minRating") || "");
+  const gender = getSingleParam(searchParams, "gender");
 
   return {
     q: trimFilterValue(getSingleParam(searchParams, "q")),
     category: trimFilterValue(getSingleParam(searchParams, "category"), 60),
     brand: trimFilterValue(getSingleParam(searchParams, "brand"), 80),
-    shippingCountry: trimFilterValue(getSingleParam(searchParams, "shippingCountry"), 12),
+    gender: CATALOG_GENDER_FILTERS.includes(gender as CatalogGenderFilter) ? (gender as CatalogGenderFilter) : undefined,
     freeShipping: getBooleanParam(searchParams, "freeShipping") || undefined,
-    minRating: Number.isFinite(minRating) && minRating >= 1 && minRating <= 5 ? minRating : undefined,
     onSale: getBooleanParam(searchParams, "onSale") || undefined,
     sort: CATALOG_SORT_OPTIONS.includes(sort as CatalogSortOption) ? (sort as CatalogSortOption) : undefined,
   };
@@ -121,9 +120,8 @@ export function getCatalogPageHref(page: number, filters: CatalogFilters = {}) {
   if (filters.q) params.set("q", filters.q);
   if (filters.category) params.set("category", filters.category);
   if (filters.brand) params.set("brand", filters.brand);
-  if (filters.shippingCountry) params.set("shippingCountry", filters.shippingCountry);
+  if (filters.gender) params.set("gender", filters.gender);
   if (filters.freeShipping) params.set("freeShipping", "1");
-  if (filters.minRating) params.set("minRating", String(filters.minRating));
   if (filters.onSale) params.set("onSale", "1");
   if (filters.sort && filters.sort !== "newest") params.set("sort", filters.sort);
 
@@ -153,16 +151,20 @@ function getCatalogWhere(filters: CatalogFilters): Prisma.ArticleWhereInput {
     });
   }
 
-  if (filters.shippingCountry) {
-    andFilters.push({ shippingCountry: filters.shippingCountry });
+  if (filters.gender) {
+    andFilters.push({
+      tags: {
+        some: {
+          tag: {
+            slug: GENDER_TAG_SLUGS[filters.gender],
+          },
+        },
+      },
+    });
   }
 
   if (filters.freeShipping) {
     andFilters.push({ freeShipping: true });
-  }
-
-  if (filters.minRating) {
-    andFilters.push({ rating: { gte: filters.minRating } });
   }
 
   if (filters.onSale) {
@@ -212,8 +214,6 @@ function getCatalogOrderBy(filters: CatalogFilters): Prisma.ArticleOrderByWithRe
       return [{ price: "asc" }, { createdAt: "desc" }];
     case "price-desc":
       return [{ price: "desc" }, { createdAt: "desc" }];
-    case "top-rated":
-      return [{ rating: "desc" }, { reviewCount: "desc" }, { createdAt: "desc" }];
     case "delivery-fast":
       return [{ estimatedDeliveryMinDays: "asc" }, { estimatedDeliveryMaxDays: "asc" }, { createdAt: "desc" }];
     case "newest":
@@ -232,7 +232,7 @@ export async function getCatalogPageData(page: number, filters: CatalogFilters =
   const articleSkip = shouldFilterSearchInMemory ? 0 : (currentPage - 1) * CATALOG_ITEMS_PER_PAGE;
 
   try {
-    const [totalArticlesResult, articlesResult, categories, brands, shippingCountries] = await Promise.all([
+    const [totalArticlesResult, articlesResult, categories, brands] = await Promise.all([
     hasTextSearch ? Promise.resolve(null) : prisma.article.count({ where }),
     prisma.article.findMany({
       where,
@@ -311,25 +311,6 @@ export async function getCatalogPageData(page: number, filters: CatalogFilters =
         },
       },
     }),
-    prisma.article.groupBy({
-      by: ["shippingCountry"],
-      where: {
-        AND: [
-          getVisibleArticleWhere(),
-          {
-            shippingCountry: {
-              not: null,
-            },
-          },
-        ],
-      },
-      _count: {
-        _all: true,
-      },
-      orderBy: {
-        shippingCountry: "asc",
-      },
-    }),
     ]);
     const matchingSearchArticles = shouldFilterSearchInMemory && filters.q
       ? articlesResult.filter((article) => articleMatchesSearch(article, filters.q || ""))
@@ -354,7 +335,7 @@ export async function getCatalogPageData(page: number, filters: CatalogFilters =
       prompt: article.description || `${article.title} par ${article.brandRef?.name || article.brand || "Cabine Market"}`,
       description: article.description || undefined,
       price: Number(article.price),
-      currency: "USD",
+      currency: article.shippingCurrency,
       shopUrl: article.shopUrl || undefined,
       moduleId: article.category,
       moduleLabel: meta.label,
@@ -393,19 +374,10 @@ export async function getCatalogPageData(page: number, filters: CatalogFilters =
     count: brand._count.articles,
   }));
 
-  const catalogShippingCountries: CatalogShippingCountryFilter[] = shippingCountries
-    .filter((entry) => entry.shippingCountry)
-    .map((entry) => ({
-      id: entry.shippingCountry || "",
-      label: entry.shippingCountry || "",
-      count: entry._count._all,
-    }));
-
     return {
       articles: catalogArticles,
       categories: catalogCategories,
       brands: catalogBrands,
-      shippingCountries: catalogShippingCountries,
       filters,
       pagination: {
         currentPage,
@@ -421,7 +393,6 @@ export async function getCatalogPageData(page: number, filters: CatalogFilters =
       articles: [],
       categories: [],
       brands: [],
-      shippingCountries: [],
       filters,
       pagination: {
         currentPage,

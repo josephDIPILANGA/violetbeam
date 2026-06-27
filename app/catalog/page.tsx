@@ -26,14 +26,13 @@ type CatalogPageProps = {
 
 export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   const filters = parseCatalogFilters(await searchParams);
-  const { articles, categories, brands, shippingCountries, pagination } = await getCatalogPageData(1, filters);
+  const { articles, categories, brands, pagination } = await getCatalogPageData(1, filters);
 
   return (
     <CatalogClient
       articles={articles}
       brands={brands}
       categories={categories}
-      shippingCountries={shippingCountries}
       filters={filters}
       pagination={pagination}
     />

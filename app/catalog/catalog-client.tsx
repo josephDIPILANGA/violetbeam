@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, ArrowUpRight, BadgePercent, Clock3, ExternalLink, Filter, Search, Shirt, Sparkles, Star, Store, Tag, Truck, X } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { ArrowLeft, ArrowRight, ArrowUpRight, BadgePercent, ExternalLink, Filter, Search, Shirt, Sparkles, Star, Store, Tag, Truck, UserRound, UsersRound, X, Zap } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -21,11 +22,6 @@ type CatalogClientProps = {
     id: string;
     label: string;
   }[];
-  shippingCountries: {
-    id: string;
-    label: string;
-    count: number;
-  }[];
   filters: CatalogFilters;
   pagination: {
     currentPage: number;
@@ -39,11 +35,10 @@ type CatalogFilters = {
   q?: string;
   category?: string;
   brand?: string;
-  shippingCountry?: string;
+  gender?: "men" | "women" | "unisex";
   freeShipping?: boolean;
-  minRating?: number;
   onSale?: boolean;
-  sort?: "newest" | "price-asc" | "price-desc" | "top-rated" | "delivery-fast";
+  sort?: "newest" | "price-asc" | "price-desc" | "delivery-fast";
 };
 
 function formatPrice(price: number | string | undefined, currency = "USD") {
@@ -85,9 +80,8 @@ function getCatalogPageHref(page: number, filters: CatalogFilters = {}) {
   if (filters.q) params.set("q", filters.q);
   if (filters.category) params.set("category", filters.category);
   if (filters.brand) params.set("brand", filters.brand);
-  if (filters.shippingCountry) params.set("shippingCountry", filters.shippingCountry);
+  if (filters.gender) params.set("gender", filters.gender);
   if (filters.freeShipping) params.set("freeShipping", "1");
-  if (filters.minRating) params.set("minRating", String(filters.minRating));
   if (filters.onSale) params.set("onSale", "1");
   if (filters.sort && filters.sort !== "newest") params.set("sort", filters.sort);
 
@@ -146,11 +140,9 @@ function ProductBenefits({ article, compact = false }: { article: CatalogArticle
 function ProductCard({
   article,
   featured = false,
-  onOpen,
 }: {
   article: CatalogArticle;
   featured?: boolean;
-  onOpen: (article: CatalogArticle) => void;
 }) {
   return (
     <article
@@ -382,7 +374,7 @@ function ProductModal({
   );
 }
 
-export default function CatalogClient({ articles, brands, categories, shippingCountries, filters, pagination }: CatalogClientProps) {
+export default function CatalogClient({ articles, brands, categories, filters, pagination }: CatalogClientProps) {
   const [activeArticle, setActiveArticle] = useState<CatalogArticle | null>(null);
   const [draftFilters, setDraftFilters] = useState<CatalogFilters>(filters);
   const filterSliderRef = useRef<HTMLDivElement | null>(null);
@@ -391,9 +383,8 @@ export default function CatalogClient({ articles, brands, categories, shippingCo
     filters.q ||
       filters.category ||
       filters.brand ||
-      filters.shippingCountry ||
+      filters.gender ||
       filters.freeShipping ||
-      filters.minRating ||
       filters.onSale ||
       (filters.sort && filters.sort !== "newest"),
   );
@@ -401,28 +392,43 @@ export default function CatalogClient({ articles, brands, categories, shippingCo
   const galleryArticles = isSearchMode ? articles : articles.filter((article) => article.id !== featuredArticle?.id);
   const selectedCategory = categories.find((entry) => entry.id === filters.category);
   const selectedBrand = brands.find((entry) => entry.id === filters.brand || entry.name === filters.brand);
+  const selectedGenderLabel =
+    filters.gender === "men" ? "Homme" : filters.gender === "women" ? "Femme" : filters.gender === "unisex" ? "Unisexe" : "";
   const searchTitle =
     filters.q ||
     selectedCategory?.label ||
     selectedBrand?.name ||
-    (filters.shippingCountry ? `Ships from ${filters.shippingCountry}` : "") ||
-    (filters.freeShipping ? "Free shipping" : "") ||
+    selectedGenderLabel ||
     (filters.onSale ? "Best deals" : "") ||
-    (filters.minRating ? "Top rated" : "") ||
+    (filters.freeShipping ? "Free shipping" : "") ||
+    (filters.sort === "delivery-fast" ? "Fast delivery" : "") ||
     "Résultats filtrés";
   const firstVisibleArticle = (pagination.currentPage - 1) * pagination.pageSize + 1;
   const lastVisibleArticle = Math.min(
     (pagination.currentPage - 1) * pagination.pageSize + articles.length,
     pagination.totalArticles,
   );
-  const primaryShippingCountry = shippingCountries[0]?.id;
   const benefitFilters = [
     {
-      label: "Best deals",
-      description: "Discounted pieces",
-      active: Boolean(draftFilters.onSale),
-      icon: BadgePercent,
-      onClick: () => setDraftFilters((current) => ({ ...current, onSale: current.onSale ? undefined : true })),
+      label: "Homme",
+      description: "Mode homme",
+      active: draftFilters.gender === "men",
+      icon: UserRound,
+      onClick: () => setDraftFilters((current) => ({ ...current, gender: current.gender === "men" ? undefined : "men" })),
+    },
+    {
+      label: "Femme",
+      description: "Mode femme",
+      active: draftFilters.gender === "women",
+      icon: Sparkles,
+      onClick: () => setDraftFilters((current) => ({ ...current, gender: current.gender === "women" ? undefined : "women" })),
+    },
+    {
+      label: "Unisexe",
+      description: "Styles mixtes",
+      active: draftFilters.gender === "unisex",
+      icon: UsersRound,
+      onClick: () => setDraftFilters((current) => ({ ...current, gender: current.gender === "unisex" ? undefined : "unisex" })),
     },
     {
       label: "Free shipping",
@@ -432,46 +438,24 @@ export default function CatalogClient({ articles, brands, categories, shippingCo
       onClick: () => setDraftFilters((current) => ({ ...current, freeShipping: current.freeShipping ? undefined : true })),
     },
     {
-      label: "Top rated",
-      description: "4+ stars first",
-      active: draftFilters.minRating === 4,
-      icon: Star,
-      onClick: () =>
-        setDraftFilters((current) => ({
-          ...current,
-          minRating: current.minRating === 4 ? undefined : 4,
-          sort: current.minRating === 4 ? "newest" : "top-rated",
-        })),
+      label: "Best deals",
+      description: "Promos actives",
+      active: Boolean(draftFilters.onSale),
+      icon: BadgePercent,
+      onClick: () => setDraftFilters((current) => ({ ...current, onSale: current.onSale ? undefined : true })),
     },
     {
       label: "Fast delivery",
-      description: "Shortest ETA",
+      description: "Délai indiqué",
       active: draftFilters.sort === "delivery-fast",
-      icon: Clock3,
-      onClick: () =>
-        setDraftFilters((current) => ({
-          ...current,
-          sort: current.sort === "delivery-fast" ? "newest" : "delivery-fast",
-        })),
+      icon: Zap,
+      onClick: () => setDraftFilters((current) => ({ ...current, sort: current.sort === "delivery-fast" ? "newest" : "delivery-fast" })),
     },
-    primaryShippingCountry
-      ? {
-          label: `Ships from ${primaryShippingCountry}`,
-          description: "Local stock",
-          active: draftFilters.shippingCountry === primaryShippingCountry,
-          icon: Store,
-          onClick: () =>
-            setDraftFilters((current) => ({
-              ...current,
-              shippingCountry: current.shippingCountry === primaryShippingCountry ? undefined : primaryShippingCountry,
-            })),
-        }
-      : null,
   ].filter(Boolean) as Array<{
     label: string;
     description: string;
     active: boolean;
-    icon: typeof BadgePercent;
+    icon: LucideIcon;
     onClick: () => void;
   }>;
 
@@ -504,9 +488,9 @@ export default function CatalogClient({ articles, brands, categories, shippingCo
 
       <section className="sticky top-16 z-[100] border-b border-white/70 bg-white/70 shadow-[0_18px_50px_-32px_rgba(92,54,118,0.55)] backdrop-blur-2xl">
         <form action="/catalog" className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 lg:px-10">
+          {draftFilters.gender ? <input type="hidden" name="gender" value={draftFilters.gender} /> : null}
           {draftFilters.freeShipping ? <input type="hidden" name="freeShipping" value="1" /> : null}
           {draftFilters.onSale ? <input type="hidden" name="onSale" value="1" /> : null}
-          {draftFilters.minRating ? <input type="hidden" name="minRating" value={String(draftFilters.minRating)} /> : null}
 
           <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
             <div className="relative min-w-0 flex-1">
@@ -615,25 +599,6 @@ export default function CatalogClient({ articles, brands, categories, shippingCo
               </select>
 
               <select
-                name="shippingCountry"
-                value={draftFilters.shippingCountry || ""}
-                onChange={(event) =>
-                  setDraftFilters((current) => ({
-                    ...current,
-                    shippingCountry: event.target.value || undefined,
-                  }))
-                }
-                className="h-11 min-w-[185px] shrink-0 rounded-full border border-white/70 bg-white/60 px-4 text-[10px] font-black uppercase tracking-[0.16em] text-stone-500 shadow-sm backdrop-blur-2xl outline-none focus:border-[#C9A0CD]"
-              >
-                <option value="">Ships anywhere</option>
-                {shippingCountries.map((entry) => (
-                  <option key={entry.id} value={entry.id}>
-                    {entry.label} ({entry.count})
-                  </option>
-                ))}
-              </select>
-
-              <select
                 name="sort"
                 value={draftFilters.sort || "newest"}
                 onChange={(event) =>
@@ -645,10 +610,9 @@ export default function CatalogClient({ articles, brands, categories, shippingCo
                 className="h-11 min-w-[180px] shrink-0 rounded-full border border-white/70 bg-white/60 px-4 text-[10px] font-black uppercase tracking-[0.16em] text-stone-500 shadow-sm backdrop-blur-2xl outline-none focus:border-[#C9A0CD]"
               >
                 <option value="newest">Curated order</option>
-                <option value="top-rated">Highest rated</option>
-                <option value="delivery-fast">Fastest delivery</option>
                 <option value="price-asc">Lowest price</option>
                 <option value="price-desc">Highest price</option>
+                <option value="delivery-fast">Fast delivery</option>
               </select>
             </div>
 
@@ -692,7 +656,7 @@ export default function CatalogClient({ articles, brands, categories, shippingCo
           </div>
 
           {featuredArticle ? (
-            <ProductCard article={featuredArticle} featured onOpen={setActiveArticle} />
+            <ProductCard article={featuredArticle} featured />
           ) : (
             <div className="flex min-h-[420px] flex-col items-center justify-center rounded-[40px] border-2 border-dashed border-stone-200 bg-white/50 text-center">
               <Shirt className="mb-6 text-[#8d5f9e]/50" size={36} />
@@ -744,7 +708,7 @@ export default function CatalogClient({ articles, brands, categories, shippingCo
             <>
               <div className="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {galleryArticles.map((article) => (
-                  <ProductCard key={article.id} article={article} onOpen={setActiveArticle} />
+                  <ProductCard key={article.id} article={article} />
                 ))}
               </div>
 
