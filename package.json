@@ -10,6 +10,7 @@
     "lint": "eslint",
     "import:dummyjson": "node scripts/import-dummyjson-products.mjs",
     "import:awin": "node scripts/import-awin-products.mjs",
+    "audit:awin-categories": "node scripts/audit-awin-categories.mjs",
     "seed:influencers": "node scripts/seed-virtual-influencers.mjs",
     "generate:influencer-images": "node scripts/generate-influencer-images.mjs",
     "generate:influencer-posts": "node scripts/generate-influencer-posts.mjs",

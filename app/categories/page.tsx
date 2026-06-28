@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { ArrowUpRight, Layers, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { getCatalogModuleMeta, MODULE_ICON_MAP, type ModuleIconName } from "@/lib/catalog";
+import { addLocaleToPathname, DEFAULT_LOCALE, getDictionary, isLocale } from "@/lib/i18n";
+import type { Locale } from "@/lib/i18n";
 import { getVisibleArticleWhere } from "@/lib/marketplace-visibility";
 import { prisma } from "@/lib/prisma";
 
@@ -18,7 +21,17 @@ export const metadata: Metadata = {
   },
 };
 
+async function getRequestLocale(): Promise<Locale> {
+  const headersList = await headers();
+  const requestedLocale = headersList.get("x-violetbeam-locale") || undefined;
+  return isLocale(requestedLocale) ? requestedLocale : DEFAULT_LOCALE;
+}
+
 export default async function CategoriesPage() {
+  const locale = await getRequestLocale();
+  const dictionary = getDictionary(locale);
+  const catalogCopy = dictionary.catalog;
+  const categoriesCopy = dictionary.categories;
   const articles = await prisma.article.findMany({
     where: getVisibleArticleWhere(),
     orderBy: {
@@ -61,18 +74,18 @@ export default async function CategoriesPage() {
           <div>
             <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-[#8d5f9e]/10 px-4 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.4em] text-[#8d5f9e]">
               <Sparkles size={13} />
-              Product categories
+              {categoriesCopy.directoryLabel}
             </div>
             <h1 className="font-serif text-7xl italic leading-[0.85] tracking-tight text-[#1C1C1C] md:text-9xl">
-              Catégories
+              {categoriesCopy.title}
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-8 text-stone-500">
-              Parcourez les articles par type de pièce : robes, chemises, chaussures, accessoires et autres modules du catalogue.
+              {categoriesCopy.intro}
             </p>
           </div>
           <Button asChild className="h-14 rounded-full bg-[#1C1C1C] px-7 text-[10px] font-black uppercase tracking-[0.24em] text-white hover:bg-[#8d5f9e]">
-            <Link href="/catalog">
-              Catalog
+            <Link href={addLocaleToPathname("/catalog", locale)}>
+              {dictionary.common.catalog}
               <Layers size={15} />
             </Link>
           </Button>
@@ -88,7 +101,7 @@ export default async function CategoriesPage() {
               return (
                 <Link
                   key={category.id}
-                  href={`/categories/${category.id}`}
+                  href={addLocaleToPathname(`/categories/${category.id}`, locale)}
                   className="group overflow-hidden rounded-[32px] border border-white/70 bg-white/60 shadow-sm transition-all duration-500 hover:-translate-y-1 hover:bg-white hover:shadow-2xl hover:shadow-purple-900/10"
                 >
                   <div className="relative aspect-[4/5] overflow-hidden bg-[#f3edf9]">
@@ -110,7 +123,7 @@ export default async function CategoriesPage() {
                     </h2>
                     <div className="mt-6 flex items-center justify-between border-t border-stone-200/70 pt-5">
                       <span className="text-[9px] font-black uppercase tracking-[0.2em] text-stone-400">
-                        {category.count} articles
+                        {category.count} {catalogCopy.articles}
                       </span>
                       <ArrowUpRight size={16} className="text-stone-300 transition-colors group-hover:text-[#8d5f9e]" />
                     </div>
@@ -121,7 +134,7 @@ export default async function CategoriesPage() {
           </section>
         ) : (
           <div className="flex min-h-80 items-center justify-center rounded-[40px] border-2 border-dashed border-stone-200 bg-white/50 text-center">
-            <p className="text-sm font-semibold text-stone-400">Les catégories apparaîtront ici après import du catalogue.</p>
+            <p className="text-sm font-semibold text-stone-400">{categoriesCopy.empty}</p>
           </div>
         )}
       </div>

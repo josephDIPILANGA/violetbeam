@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Script from "next/script";
 import "./globals.css";
 import Providers from "@/app/providers";
 import GlobalSearchBar from "@/components/global-search-bar";
 import SiteFooter from "@/components/site-footer";
 import SiteNav from "@/components/site-nav";
+import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n";
+import { getLocalizedAlternates } from "@/lib/seo-locales";
 import { getSiteUrl } from "@/lib/site-url";
 
 export const metadata: Metadata = {
@@ -28,7 +31,7 @@ export const metadata: Metadata = {
   creator: "VioletBeam",
   publisher: "VioletBeam",
   alternates: {
-    canonical: "/",
+    ...getLocalizedAlternates("/"),
   },
   openGraph: {
     type: "website",
@@ -58,13 +61,17 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const headersList = await headers();
+  const requestedLocale = headersList.get("x-violetbeam-locale") || undefined;
+  const htmlLocale = isLocale(requestedLocale) ? requestedLocale : DEFAULT_LOCALE;
+
   return (
-    <html lang="fr" className="h-full antialiased">
+    <html lang={htmlLocale} className="h-full antialiased">
       <body className="min-h-full flex flex-col">
         <Providers>
           <SiteNav />

@@ -1,14 +1,23 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { ArrowUpRight, ExternalLink, Layers, Shirt, Sparkles, Tag } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { getCatalogModuleMeta, MODULE_ICON_MAP, type ModuleIconName } from "@/lib/catalog";
+import { addLocaleToPathname, DEFAULT_LOCALE, getDictionary, isLocale } from "@/lib/i18n";
+import type { Locale } from "@/lib/i18n";
 import { withVisibleArticles } from "@/lib/marketplace-visibility";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
+
+async function getRequestLocale(): Promise<Locale> {
+  const headersList = await headers();
+  const requestedLocale = headersList.get("x-violetbeam-locale") || undefined;
+  return isLocale(requestedLocale) ? requestedLocale : DEFAULT_LOCALE;
+}
 
 export async function generateMetadata({
   params,
@@ -49,6 +58,10 @@ export default async function CategoryDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+  const locale = await getRequestLocale();
+  const dictionary = getDictionary(locale);
+  const catalogCopy = dictionary.catalog;
+  const categoriesCopy = dictionary.categories;
   const meta = getCatalogModuleMeta(slug);
   const Icon = MODULE_ICON_MAP[meta.iconName as ModuleIconName] ?? Layers;
   const articles = await prisma.article.findMany({
@@ -93,22 +106,22 @@ export default async function CategoryDetailPage({
           <div className="flex flex-col justify-center">
             <div className="mb-5 inline-flex w-fit items-center gap-2 rounded-full bg-[#8d5f9e]/10 px-4 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.4em] text-[#8d5f9e]">
               <Sparkles size={13} />
-              Category
+              {categoriesCopy.detailLabel}
             </div>
             <h1 className="font-serif text-7xl italic leading-[0.85] tracking-tight text-[#1C1C1C] md:text-9xl">
               {meta.label}
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-8 text-stone-500">
-              Découvrez les articles de cette catégorie et envoyez une pièce directement dans la cabine pour l&apos;essayer.
+              {categoriesCopy.detailIntro}
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <span className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-[9px] font-black uppercase tracking-[0.22em] text-[#8d5f9e] ring-1 ring-[#C9A0CD]/20">
                 <Tag size={12} />
-                {articles.length} articles
+                {articles.length} {catalogCopy.articles}
               </span>
               <Button asChild className="h-10 rounded-full bg-white px-5 text-[9px] font-black uppercase tracking-[0.2em] text-[#4f365f] ring-1 ring-[#C9A0CD]/25 hover:bg-[#fbf7ff]">
-                <Link href="/categories">
-                  Toutes les catégories
+                <Link href={addLocaleToPathname("/categories", locale)}>
+                  {dictionary.common.allCategories}
                 </Link>
               </Button>
             </div>
@@ -137,14 +150,14 @@ export default async function CategoryDetailPage({
                 <p className="mt-3 text-[9px] font-black uppercase tracking-[0.22em] text-stone-400">
                   {article.brandRef?.name || article.brand || "Cabine Market"}
                 </p>
-                <p className="mt-4 line-clamp-2 text-sm leading-6 text-stone-500">{article.description || "Description à venir."}</p>
+                <p className="mt-4 line-clamp-2 text-sm leading-6 text-stone-500">{article.description || catalogCopy.descriptionComingSoon}</p>
                 <p className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-[#8d5f9e]">
                   {new Intl.NumberFormat("fr-FR", { style: "currency", currency: article.shippingCurrency }).format(Number(article.price))}
                 </p>
                 <div className="mt-6 flex gap-3">
                   <Button asChild className="h-11 flex-1 rounded-full bg-[#1C1C1C] text-[9px] font-black uppercase tracking-[0.2em] text-white hover:bg-[#8d5f9e]">
-                    <Link href={`/cabine?module=${article.category}&article=db-${article.id}`}>
-                      Try On
+                    <Link href={addLocaleToPathname(`/cabine?module=${article.category}&article=db-${article.id}`, locale)}>
+                      {dictionary.common.tryOn}
                       <ArrowUpRight size={13} />
                     </Link>
                   </Button>

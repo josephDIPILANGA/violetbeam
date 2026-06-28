@@ -72,7 +72,7 @@ const DEFAULT_ACCENT = "bg-gradient-to-br from-[#fbf9ff] via-[#efe7f6] to-[#e5e2
 
 export const CATALOG_MODULE_META: Record<string, ModuleMeta> = {
   shirts: {
-    label: "Chemises",
+    label: "Hauts",
     iconName: "shirt",
     accent: "bg-gradient-to-br from-[#fbf9ff] via-[#f3edf9] to-[#e7e4e0]",
   },

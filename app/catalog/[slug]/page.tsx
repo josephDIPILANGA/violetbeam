@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, ArrowUpRight, ExternalLink, PackageCheck, Shirt, Sparkles, Star, Truck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { getArticleIdFromProductSlug, getArticleProductHref, getArticleProductSlug, getCatalogModuleMeta } from "@/lib/catalog";
 import { getInfluencerPostHref } from "@/lib/influencer-posts";
+import { addLocaleToPathname, DEFAULT_LOCALE, getDictionary, isLocale } from "@/lib/i18n";
+import type { Locale } from "@/lib/i18n";
 import { withVisibleArticles } from "@/lib/marketplace-visibility";
 import { prisma } from "@/lib/prisma";
 import { getAbsoluteUrl } from "@/lib/site-url";
@@ -22,6 +25,12 @@ function formatPrice(price: number | string, currency = "USD") {
     style: "currency",
     currency,
   }).format(Number(price));
+}
+
+async function getRequestLocale(): Promise<Locale> {
+  const headersList = await headers();
+  const requestedLocale = headersList.get("x-violetbeam-locale") || undefined;
+  return isLocale(requestedLocale) ? requestedLocale : DEFAULT_LOCALE;
 }
 
 function formatDelivery(article: {
@@ -138,20 +147,24 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { slug } = await params;
+  const locale = await getRequestLocale();
+  const dictionary = getDictionary(locale);
+  const catalogCopy = dictionary.catalog;
+  const productCopy = dictionary.product;
   const article = await getArticle(slug);
 
   if (!article) notFound();
 
   const canonicalSlug = getArticleProductSlug(article);
   if (slug !== canonicalSlug) {
-    redirect(getArticleProductHref(article));
+    redirect(addLocaleToPathname(getArticleProductHref(article), locale));
   }
 
   const brand = article.brandRef?.name || article.brand || "Cabine Market";
   const categoryMeta = getCatalogModuleMeta(article.category);
   const image = article.imageUrls[0] || "";
   const delivery = formatDelivery(article);
-  const tryOnHref = `/cabine?module=${encodeURIComponent(article.category)}&article=db-${article.id}`;
+  const tryOnHref = addLocaleToPathname(`/cabine?module=${encodeURIComponent(article.category)}&article=db-${article.id}`, locale);
   const similarArticles = await prisma.article.findMany({
     where: withVisibleArticles({
       id: {
@@ -207,7 +220,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   };
   const benefitBadges = [
     article.isOnSale && article.discountPercent ? `-${article.discountPercent}%` : null,
-    article.freeShipping ? "Free shipping" : null,
+    article.freeShipping ? dictionary.filters.freeShipping : null,
     article.shippingCountry ? `Ships from ${article.shippingCountry}` : null,
     delivery ? `Delivery ${delivery}` : null,
     typeof article.rating === "number" ? `Rated ${article.rating.toFixed(1)}` : null,
@@ -223,9 +236,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
       />
 
       <div className="mx-auto max-w-7xl px-6 py-12 lg:px-10">
-        <Link href="/catalog" className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 transition-colors hover:text-[#8d5f9e]">
+        <Link href={addLocaleToPathname("/catalog", locale)} className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 transition-colors hover:text-[#8d5f9e]">
           <ArrowLeft size={14} />
-          Back to catalog
+          {productCopy.backToCatalog}
         </Link>
 
         <section className="mt-8 grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
@@ -241,12 +254,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
           <div className="flex flex-col justify-center rounded-[36px] border border-white/75 bg-white/55 p-6 shadow-2xl shadow-purple-900/5 backdrop-blur-2xl lg:p-9">
             <div className="flex flex-wrap gap-2">
-              <Link href={`/categories/${article.category}`} className="inline-flex items-center gap-2 rounded-full bg-[#8d5f9e]/10 px-4 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-[#8d5f9e]">
+              <Link href={addLocaleToPathname(`/categories/${article.category}`, locale)} className="inline-flex items-center gap-2 rounded-full bg-[#8d5f9e]/10 px-4 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-[#8d5f9e]">
                 <Sparkles size={12} />
                 {categoryMeta.label}
               </Link>
               {article.brandRef?.slug ? (
-                <Link href={`/brands/${article.brandRef.slug}`} className="inline-flex items-center gap-2 rounded-full bg-white/75 px-4 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-stone-500 ring-1 ring-white/80">
+                <Link href={addLocaleToPathname(`/brands/${article.brandRef.slug}`, locale)} className="inline-flex items-center gap-2 rounded-full bg-white/75 px-4 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-stone-500 ring-1 ring-white/80">
                   {brand}
                 </Link>
               ) : (
@@ -274,18 +287,18 @@ export default async function ProductPage({ params }: ProductPageProps) {
             ) : null}
 
             <p className="mt-7 text-base leading-8 text-stone-600">
-              {article.description || `${article.title} is available in the VioletBeam catalog and can be tested in the AI cabine before shopping.`}
+              {article.description || catalogCopy.descriptionComingSoon}
               {" "}
-              Explore more from{" "}
+              {productCopy.exploreFrom}{" "}
               {article.brandRef?.slug ? (
-                <Link href={`/brands/${article.brandRef.slug}`} className="font-bold text-[#8d5f9e] hover:underline">
+                <Link href={addLocaleToPathname(`/brands/${article.brandRef.slug}`, locale)} className="font-bold text-[#8d5f9e] hover:underline">
                   {brand}
                 </Link>
               ) : (
                 <span className="font-bold text-[#8d5f9e]">{brand}</span>
               )}
-              {" "}or browse similar{" "}
-              <Link href={`/categories/${article.category}`} className="font-bold text-[#8d5f9e] hover:underline">
+              {" "}{productCopy.orBrowseSimilar}{" "}
+              <Link href={addLocaleToPathname(`/categories/${article.category}`, locale)} className="font-bold text-[#8d5f9e] hover:underline">
                 {categoryMeta.label.toLowerCase()}
               </Link>
               .
@@ -294,20 +307,20 @@ export default async function ProductPage({ params }: ProductPageProps) {
             <div className="mt-8 grid gap-3 sm:grid-cols-2">
               <Button asChild className="h-14 rounded-full bg-[#1C1C1C] text-[10px] font-black uppercase tracking-[0.2em] text-white hover:bg-[#8d5f9e]">
                 <Link href={tryOnHref}>
-                  Try in cabine
+                  {productCopy.tryInCabine}
                   <ArrowUpRight size={15} />
                 </Link>
               </Button>
               {article.shopUrl ? (
                 <Button asChild className="h-14 rounded-full bg-white text-[10px] font-black uppercase tracking-[0.2em] text-[#4f365f] ring-1 ring-[#C9A0CD]/25 hover:bg-[#fbf7ff]">
                   <a href={article.shopUrl} target="_blank" rel="noreferrer">
-                    Shop
+                    {productCopy.shop}
                     <ExternalLink size={14} />
                   </a>
                 </Button>
               ) : (
                 <Button disabled className="h-14 rounded-full bg-white text-[10px] font-black uppercase tracking-[0.2em] text-stone-300 ring-1 ring-stone-200">
-                  Shop
+                  {productCopy.shop}
                 </Button>
               )}
             </div>
@@ -318,10 +331,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
           <section className="mt-14">
             <div className="mb-6 flex items-end justify-between gap-4">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#8d5f9e]">Worn by VioletBeam muses</p>
-                <h2 className="mt-2 font-serif text-4xl italic text-[#1C1C1C]">AI compositions featuring this article</h2>
+                <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#8d5f9e]">{productCopy.wornBy}</p>
+                <h2 className="mt-2 font-serif text-4xl italic text-[#1C1C1C]">{productCopy.compositions}</h2>
               </div>
-              <Link href="/lookbook" className="text-[10px] font-black uppercase tracking-[0.18em] text-stone-400 hover:text-[#8d5f9e]">
+              <Link href={addLocaleToPathname("/lookbook", locale)} className="text-[10px] font-black uppercase tracking-[0.18em] text-stone-400 hover:text-[#8d5f9e]">
                 Lookbook
               </Link>
             </div>
@@ -355,17 +368,17 @@ export default async function ProductPage({ params }: ProductPageProps) {
         ) : null}
 
         <section className="mt-10 grid gap-4 md:grid-cols-3">
-          <DetailCard icon={Truck} title="Shipping" text={article.freeShipping ? "Free shipping available" : article.shippingPrice ? `${formatPrice(Number(article.shippingPrice), article.shippingCurrency)} delivery` : "Shipping details coming soon"} />
-          <DetailCard icon={PackageCheck} title="Origin" text={article.shippingCountry ? `Ships from ${article.shippingCountry}` : "Origin to be confirmed"} />
-          <DetailCard icon={Star} title="Rating" text={typeof article.rating === "number" ? `${article.rating.toFixed(1)} / 5 · ${article.reviewCount} reviews` : "No rating yet"} />
+          <DetailCard icon={Truck} title={productCopy.shipping} text={article.freeShipping ? productCopy.freeShippingAvailable : article.shippingPrice ? `${formatPrice(Number(article.shippingPrice), article.shippingCurrency)} delivery` : productCopy.shippingDetailsComingSoon} />
+          <DetailCard icon={PackageCheck} title={productCopy.origin} text={article.shippingCountry ? `Ships from ${article.shippingCountry}` : productCopy.originToConfirm} />
+          <DetailCard icon={Star} title={productCopy.rating} text={typeof article.rating === "number" ? `${article.rating.toFixed(1)} / 5 · ${article.reviewCount} reviews` : productCopy.noRatingYet} />
         </section>
 
         <section className="mt-10 rounded-[32px] border border-white/75 bg-white/55 p-6 shadow-2xl shadow-purple-900/5 backdrop-blur-2xl">
-          <h2 className="font-serif text-4xl italic text-[#1C1C1C]">Product details</h2>
+          <h2 className="font-serif text-4xl italic text-[#1C1C1C]">{productCopy.productDetails}</h2>
           <div className="mt-6 grid gap-5 md:grid-cols-3">
-            <TagList title="Colors" items={article.colors} />
-            <TagList title="Materials" items={article.materials} />
-            <TagList title="Style tags" items={[...article.styleTags, ...article.tags.map((entry) => entry.tag.name)]} />
+            <TagList title={productCopy.colors} items={article.colors} locale={locale} emptyText={productCopy.detailsComingSoon} />
+            <TagList title={productCopy.materials} items={article.materials} locale={locale} emptyText={productCopy.detailsComingSoon} />
+            <TagList title={productCopy.styleTags} items={[...article.styleTags, ...article.tags.map((entry) => entry.tag.name)]} locale={locale} emptyText={productCopy.detailsComingSoon} />
           </div>
         </section>
 
@@ -373,18 +386,18 @@ export default async function ProductPage({ params }: ProductPageProps) {
           <section className="mt-14">
             <div className="mb-6 flex items-end justify-between gap-4">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#8d5f9e]">Explore more</p>
-                <h2 className="mt-2 font-serif text-4xl italic text-[#1C1C1C]">Similar products</h2>
+                <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#8d5f9e]">{productCopy.exploreMore}</p>
+                <h2 className="mt-2 font-serif text-4xl italic text-[#1C1C1C]">{productCopy.similarProducts}</h2>
               </div>
-              <Link href={`/categories/${article.category}`} className="text-[10px] font-black uppercase tracking-[0.18em] text-stone-400 hover:text-[#8d5f9e]">
-                More {categoryMeta.label}
+              <Link href={addLocaleToPathname(`/categories/${article.category}`, locale)} className="text-[10px] font-black uppercase tracking-[0.18em] text-stone-400 hover:text-[#8d5f9e]">
+                {productCopy.more} {categoryMeta.label}
               </Link>
             </div>
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
               {similarArticles.map((similar) => (
                 <Link
                   key={similar.id}
-                  href={getArticleProductHref(similar)}
+                  href={addLocaleToPathname(getArticleProductHref(similar), locale)}
                   className="group overflow-hidden rounded-[28px] border border-white/75 bg-white/55 shadow-lg shadow-purple-900/5 transition-all hover:-translate-y-1 hover:bg-white"
                 >
                   {similar.imageUrls[0] ? (
@@ -425,7 +438,17 @@ function DetailCard({ icon: Icon, title, text }: { icon: typeof Truck; title: st
   );
 }
 
-function TagList({ title, items }: { title: string; items: string[] }) {
+function TagList({
+  title,
+  items,
+  locale,
+  emptyText,
+}: {
+  title: string;
+  items: string[];
+  locale: Locale;
+  emptyText: string;
+}) {
   const visibleItems = Array.from(new Set(items.filter(Boolean))).slice(0, 8);
 
   return (
@@ -436,7 +459,7 @@ function TagList({ title, items }: { title: string; items: string[] }) {
           {visibleItems.map((item) => (
             <Link
               key={item}
-              href={`/catalog?q=${encodeURIComponent(item)}`}
+              href={addLocaleToPathname(`/catalog?q=${encodeURIComponent(item)}`, locale)}
               className={cn(
                 "rounded-full px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.14em] ring-1",
                 "bg-white/80 text-stone-500 ring-stone-100 hover:text-[#8d5f9e]",
@@ -447,7 +470,7 @@ function TagList({ title, items }: { title: string; items: string[] }) {
           ))}
         </div>
       ) : (
-        <p className="mt-3 text-sm font-medium text-stone-400">Details coming soon.</p>
+        <p className="mt-3 text-sm font-medium text-stone-400">{emptyText}</p>
       )}
     </div>
   );

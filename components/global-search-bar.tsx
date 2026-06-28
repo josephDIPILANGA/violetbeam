@@ -8,6 +8,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { addLocaleToPathname, getDictionary, getLocaleFromPathname, stripLocaleFromPathname } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 const hiddenPathPrefixes = [
@@ -20,13 +21,19 @@ const hiddenPathPrefixes = [
 
 export default function GlobalSearchBar() {
   const pathname = usePathname();
+  const locale = getLocaleFromPathname(pathname);
+  const dictionary = getDictionary(locale);
+  const currentPathname = stripLocaleFromPathname(pathname);
+  const filters = dictionary.filters;
+  const common = dictionary.common;
+  const globalSearch = dictionary.globalSearch;
   const [freeShipping, setFreeShipping] = useState(false);
   const [onSale, setOnSale] = useState(false);
   const [fastDelivery, setFastDelivery] = useState(false);
   const [gender, setGender] = useState<"men" | "women" | "unisex" | undefined>();
 
-  const isCatalogSearchPage = pathname === "/catalog" || pathname.startsWith("/catalog/page/");
-  const isHidden = isCatalogSearchPage || hiddenPathPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+  const isCatalogSearchPage = currentPathname === "/catalog" || currentPathname.startsWith("/catalog/page/");
+  const isHidden = isCatalogSearchPage || hiddenPathPrefixes.some((prefix) => currentPathname === prefix || currentPathname.startsWith(`${prefix}/`));
 
   if (isHidden) {
     return <div className="h-16 shrink-0" aria-hidden="true" />;
@@ -39,37 +46,37 @@ export default function GlobalSearchBar() {
     onClick: () => void;
   }> = [
     {
-      label: "Homme",
+      label: filters.men,
       active: gender === "men",
       icon: UserRound,
       onClick: () => setGender((current) => (current === "men" ? undefined : "men")),
     },
     {
-      label: "Femme",
+      label: filters.women,
       active: gender === "women",
       icon: Sparkles,
       onClick: () => setGender((current) => (current === "women" ? undefined : "women")),
     },
     {
-      label: "Unisexe",
+      label: filters.unisex,
       active: gender === "unisex",
       icon: UsersRound,
       onClick: () => setGender((current) => (current === "unisex" ? undefined : "unisex")),
     },
     {
-      label: "Free shipping",
+      label: filters.freeShipping,
       active: freeShipping,
       icon: Truck,
       onClick: () => setFreeShipping((current) => !current),
     },
     {
-      label: "Best deals",
+      label: filters.bestDeals,
       active: onSale,
       icon: BadgePercent,
       onClick: () => setOnSale((current) => !current),
     },
     {
-      label: "Fast delivery",
+      label: filters.fastDelivery,
       active: fastDelivery,
       icon: Zap,
       onClick: () => setFastDelivery((current) => !current),
@@ -79,7 +86,7 @@ export default function GlobalSearchBar() {
   return (
     <>
       <section className="fixed left-0 right-0 top-16 z-[105] border-b border-white/70 bg-white/70 shadow-[0_18px_50px_-32px_rgba(92,54,118,0.55)] backdrop-blur-2xl">
-        <form action="/catalog" className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-2 lg:flex-row lg:items-center lg:px-8">
+        <form action={addLocaleToPathname("/catalog", locale)} className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-2 lg:flex-row lg:items-center lg:px-8">
           {gender ? <input type="hidden" name="gender" value={gender} /> : null}
           {freeShipping ? <input type="hidden" name="freeShipping" value="1" /> : null}
           {onSale ? <input type="hidden" name="onSale" value="1" /> : null}
@@ -89,7 +96,7 @@ export default function GlobalSearchBar() {
             <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8d5f9e]" size={16} strokeWidth={2.5} />
             <Input
               name="q"
-              placeholder="Search clothing, brands, styles..."
+              placeholder={globalSearch.placeholder}
               className="h-10 rounded-full border-white/70 bg-white/60 pl-11 pr-4 text-[11px] font-bold uppercase tracking-wider shadow-sm backdrop-blur-2xl focus:border-[#C9A0CD] focus:ring-2 focus:ring-[#C9A0CD]/20"
             />
           </div>
@@ -119,10 +126,10 @@ export default function GlobalSearchBar() {
 
           <div className="flex shrink-0 gap-2">
             <Button type="submit" className="h-10 rounded-full bg-[#1C1C1C] px-4 text-[9px] font-black uppercase tracking-[0.16em] text-white hover:bg-[#8d5f9e]">
-              Search
+              {common.search}
             </Button>
             <Button asChild className="h-10 rounded-full bg-white/60 px-4 text-[9px] font-black uppercase tracking-[0.16em] text-stone-500 ring-1 ring-white/70 hover:bg-white/80">
-              <Link href="/catalog">Catalog</Link>
+              <Link href={addLocaleToPathname("/catalog", locale)}>{common.catalog}</Link>
             </Button>
           </div>
         </form>

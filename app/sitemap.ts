@@ -4,15 +4,29 @@ import { prisma } from "@/lib/prisma";
 import { getArticleProductHref } from "@/lib/catalog";
 import { getInfluencerPostHref } from "@/lib/influencer-posts";
 import { getVisibleArticleWhere } from "@/lib/marketplace-visibility";
+import { getLanguageAlternates } from "@/lib/seo-locales";
 import { getAbsoluteUrl } from "@/lib/site-url";
 import { InfluencerPostStatus } from "@prisma/client";
 import { CATALOG_ITEMS_PER_PAGE, getCatalogPageHref } from "./catalog/catalog-data";
 
 export const dynamic = "force-dynamic";
 
+function localizedSitemapEntry(
+  pathname: string,
+  entry: Omit<MetadataRoute.Sitemap[number], "url" | "alternates">,
+): MetadataRoute.Sitemap[number] {
+  return {
+    url: getAbsoluteUrl(pathname),
+    alternates: {
+      languages: getLanguageAlternates(pathname),
+    },
+    ...entry,
+  };
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
-  const [articles, brands, categories, influencers, influencerPosts] = await Promise.all([
+  const [articles, brands, shops, categories, influencers, influencerPosts] = await Promise.all([
     prisma.article.findMany({
       where: getVisibleArticleWhere(),
       select: {
@@ -22,6 +36,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       },
     }),
     prisma.brand.findMany({
+      select: {
+        slug: true,
+        updatedAt: true,
+      },
+    }),
+    prisma.tag.findMany({
+      where: {
+        type: "merchant",
+        articles: {
+          some: {
+            article: getVisibleArticleWhere(),
+          },
+        },
+      },
       select: {
         slug: true,
         updatedAt: true,
@@ -72,84 +100,81 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const catalogPages = Array.from({ length: catalogPageCount }, (_, index) => {
     const page = index + 1;
 
-    return {
-      url: getAbsoluteUrl(getCatalogPageHref(page)),
+    return localizedSitemapEntry(getCatalogPageHref(page), {
       lastModified: now,
       changeFrequency: "daily" as const,
       priority: page === 1 ? 0.9 : 0.75,
-    };
+    });
   });
 
   return [
-    {
-      url: getAbsoluteUrl("/"),
+    localizedSitemapEntry("/", {
       lastModified: now,
       changeFrequency: "daily",
       priority: 1,
-    },
-    {
-      url: getAbsoluteUrl("/lookbook"),
+    }),
+    localizedSitemapEntry("/lookbook", {
       lastModified: now,
       changeFrequency: "daily",
       priority: 0.9,
-    },
-    {
-      url: getAbsoluteUrl("/brands"),
+    }),
+    localizedSitemapEntry("/brands", {
       lastModified: now,
       changeFrequency: "weekly",
       priority: 0.8,
-    },
-    {
-      url: getAbsoluteUrl("/categories"),
+    }),
+    localizedSitemapEntry("/shops", {
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.76,
+    }),
+    localizedSitemapEntry("/categories", {
       lastModified: now,
       changeFrequency: "weekly",
       priority: 0.8,
-    },
-    {
-      url: getAbsoluteUrl("/influencers"),
+    }),
+    localizedSitemapEntry("/influencers", {
       lastModified: now,
       changeFrequency: "weekly",
       priority: 0.78,
-    },
-    {
-      url: getAbsoluteUrl("/privacy"),
+    }),
+    localizedSitemapEntry("/privacy", {
       lastModified: now,
       changeFrequency: "yearly",
       priority: 0.3,
-    },
-    {
-      url: getAbsoluteUrl("/terms"),
+    }),
+    localizedSitemapEntry("/terms", {
       lastModified: now,
       changeFrequency: "yearly",
       priority: 0.3,
-    },
+    }),
     ...catalogPages,
-    ...articles.map((article) => ({
-      url: getAbsoluteUrl(getArticleProductHref(article)),
+    ...articles.map((article) => localizedSitemapEntry(getArticleProductHref(article), {
       lastModified: article.updatedAt,
       changeFrequency: "weekly" as const,
       priority: 0.72,
     })),
-    ...brands.map((brand) => ({
-      url: getAbsoluteUrl(`/brands/${brand.slug}`),
+    ...brands.map((brand) => localizedSitemapEntry(`/brands/${brand.slug}`, {
       lastModified: brand.updatedAt,
       changeFrequency: "weekly" as const,
       priority: 0.7,
     })),
-    ...categories.map((category) => ({
-      url: getAbsoluteUrl(`/categories/${category.category}`),
+    ...shops.map((shop) => localizedSitemapEntry(`/shops/${shop.slug.replace(/^merchant-/, "")}`, {
+      lastModified: shop.updatedAt,
+      changeFrequency: "weekly" as const,
+      priority: 0.68,
+    })),
+    ...categories.map((category) => localizedSitemapEntry(`/categories/${category.category}`, {
       lastModified: category._max.updatedAt || now,
       changeFrequency: "weekly" as const,
       priority: 0.7,
     })),
-    ...influencers.map((influencer) => ({
-      url: getAbsoluteUrl(`/influencers/${influencer.username}`),
+    ...influencers.map((influencer) => localizedSitemapEntry(`/influencers/${influencer.username}`, {
       lastModified: influencer.updatedAt,
       changeFrequency: "daily" as const,
       priority: 0.65,
     })),
-    ...influencerPosts.map((post) => ({
-      url: getAbsoluteUrl(getInfluencerPostHref(post)),
+    ...influencerPosts.map((post) => localizedSitemapEntry(getInfluencerPostHref(post), {
       lastModified: post.updatedAt,
       changeFrequency: "weekly" as const,
       priority: 0.68,

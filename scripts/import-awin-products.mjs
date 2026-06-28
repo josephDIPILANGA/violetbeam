@@ -4,6 +4,7 @@ import { gunzip } from "node:zlib";
 import { promisify } from "node:util";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { inferCatalogCategory } from "./awin-category-utils.mjs";
 
 const gunzipAsync = promisify(gunzip);
 
@@ -12,6 +13,8 @@ const FIELD_ALIASES = {
   description: ["description", "product_description", "short_description", "product_short_description"],
   price: ["search_price", "price", "product_price", "rrp_price", "display_price"],
   category: ["category_name", "merchant_category", "aw_product_type", "product_type", "category"],
+  categoryName: ["category_name"],
+  merchantCategory: ["merchant_category"],
   productType: ["product_type", "aw_product_type"],
   categoryPath: ["merchant_product_category_path"],
   secondCategory: ["merchant_product_second_category"],
@@ -32,19 +35,6 @@ const FIELD_ALIASES = {
   inStock: ["in_stock", "stock_status"],
   isForSale: ["is_for_sale", "web_offer"],
 };
-
-const CATEGORY_RULES = [
-  ["dresses", ["dress", "robe"]],
-  ["outerwear", ["jacket", "coat", "blazer", "bomber", "gilet", "windbreaker", "rain jacket", "puffer", "outerwear", "veste", "manteau"]],
-  ["shirts", ["jersey", "shirt", "shirts", "top", "tops", "polo", "blouse", "tee", "t-shirt", "chemise", "maillot"]],
-  ["pulls", ["jumper", "sweater", "pullover", "cardigan", "knit", "hoodie", "sweat", "pull"]],
-  ["bottoms", ["trouser", "trousers", "pants", "sweatpants", "jean", "jeans", "skirt", "shorts", "joggers", "leggings", "bermuda", "pantalon", "jupe"]],
-  ["shoes", ["shoe", "shoes", "sneaker", "sneakers", "trainer", "trainers", "footwear", "loafer", "loafers", "boot", "heel", "sandals", "sliders", "mules", "chaussure", "basket", "botte"]],
-  ["caps", ["cap", "hat", "beanie", "casquette", "bonnet"]],
-  ["accessories", ["accessories", "bag", "bags", "jewellery", "jewelry", "watch", "watches", "belt", "sunglasses", "accessoire", "sac", "bijou"]],
-  ["fitness-equipment", ["fitness equipment", "dumbbell", "dumbbells", "skipping rope", "resistance tube", "resistance tubes", "stepper", "steppers", "boxing", "support aids", "workout", "training gloves"]],
-  ["beauty", ["beauty", "makeup", "cosmetic", "perfume", "beaute", "parfum"]],
-];
 
 const GENDER_TAGS = {
   men: { name: "Homme", slug: "gender-men", type: "gender" },
@@ -214,20 +204,6 @@ function isPlaceholderImageUrl(value) {
   return text.includes("noimage") || text.includes("no-image") || text.includes("no_image") || text.includes("placeholder");
 }
 
-function escapeRegExp(value) {
-  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function textHasKeyword(text, keyword) {
-  return new RegExp(`(^|[^a-z0-9])${escapeRegExp(keyword)}([^a-z0-9]|$)`, "i").test(text);
-}
-
-function inferModuleId(sourceCategory, title, description) {
-  const text = `${sourceCategory} ${title} ${description}`.toLowerCase();
-  const match = CATEGORY_RULES.find(([, keywords]) => keywords.some((keyword) => textHasKeyword(text, keyword)));
-  return match?.[0] || slugify(sourceCategory || "accessories") || "accessories";
-}
-
 function collectSourceCategories(rawProduct, moduleId) {
   return [
     getField(rawProduct, FIELD_ALIASES.productType),
@@ -348,21 +324,37 @@ async function upsertArticle(rawProduct) {
   if (!title || price === null || !shopUrl) return "skipped";
 
   const description = getField(rawProduct, FIELD_ALIASES.description);
-  const sourceCategory = getField(rawProduct, FIELD_ALIASES.category);
+  const categoryName = getField(rawProduct, FIELD_ALIASES.categoryName);
+  const merchantCategory = getField(rawProduct, FIELD_ALIASES.merchantCategory);
+  const sourceCategory = merchantCategory || categoryName;
+  const productType = getField(rawProduct, FIELD_ALIASES.productType);
+  const categoryPath = getField(rawProduct, FIELD_ALIASES.categoryPath);
+  const secondCategory = getField(rawProduct, FIELD_ALIASES.secondCategory);
+  const thirdCategory = getField(rawProduct, FIELD_ALIASES.thirdCategory);
+  const suitableFor = getField(rawProduct, FIELD_ALIASES.suitableFor);
+  const { moduleId } = inferCatalogCategory({
+    title,
+    description,
+    productType,
+    categoryPath,
+    secondCategory,
+    thirdCategory,
+    merchantCategory,
+    categoryName,
+  });
   const categoryText = [
-    getField(rawProduct, FIELD_ALIASES.productType),
-    getField(rawProduct, FIELD_ALIASES.categoryPath),
-    getField(rawProduct, FIELD_ALIASES.secondCategory),
-    getField(rawProduct, FIELD_ALIASES.thirdCategory),
-    sourceCategory,
+    productType,
+    categoryPath,
+    secondCategory,
+    thirdCategory,
+    merchantCategory,
+    categoryName,
   ]
     .filter(Boolean)
     .join(" ");
-  const suitableFor = getField(rawProduct, FIELD_ALIASES.suitableFor);
-  const moduleId = inferModuleId(categoryText || sourceCategory, title, description);
   const genderTarget = inferGenderTarget({ title, description, sourceCategory: categoryText || sourceCategory, suitableFor });
   const merchantName = getField(rawProduct, FIELD_ALIASES.merchant);
-  const brandName = getField(rawProduct, FIELD_ALIASES.brand) || inferProductBrandName(title) || merchantName || "Awin";
+  const brandName = getField(rawProduct, FIELD_ALIASES.brand) || inferProductBrandName(title);
   const imageUrls = parseRawList(getField(rawProduct, FIELD_ALIASES.imageUrl));
   const deliveryRange = inferDeliveryRange(getField(rawProduct, FIELD_ALIASES.delivery));
   const shippingPrice = parsePrice(getField(rawProduct, FIELD_ALIASES.shippingCost));
@@ -381,21 +373,23 @@ async function upsertArticle(rawProduct) {
     ...parseList(suitableFor),
   ].filter((tag, index, self) => tag && self.indexOf(tag) === index);
 
-  const brand = await prisma.brand.upsert({
-    where: {
-      slug: slugify(brandName),
-    },
-    update: {
-      name: brandName,
-    },
-    create: {
-      name: brandName,
-      slug: slugify(brandName),
-    },
-    select: {
-      id: true,
-    },
-  });
+  const brand = brandName
+    ? await prisma.brand.upsert({
+        where: {
+          slug: slugify(brandName),
+        },
+        update: {
+          name: brandName,
+        },
+        create: {
+          name: brandName,
+          slug: slugify(brandName),
+        },
+        select: {
+          id: true,
+        },
+      })
+    : null;
 
   const existingArticle = await prisma.article.findFirst({
     where: {
@@ -403,7 +397,7 @@ async function upsertArticle(rawProduct) {
         { shopUrl },
         {
           title,
-          brand: brandName,
+          brand: brandName || null,
           category: moduleId,
         },
       ],
@@ -419,8 +413,8 @@ async function upsertArticle(rawProduct) {
     price,
     category: moduleId,
     imageUrls,
-    brand: brandName,
-    brandId: brand.id,
+    brand: brandName || null,
+    brandId: brand?.id || null,
     shopUrl,
     shippingCountry,
     shippingCountries: shippingCountry ? [shippingCountry] : [],

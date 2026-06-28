@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import { ArrowLeft, ArrowRight, ArrowUpRight, BadgePercent, ExternalLink, Filter, Search, Shirt, Sparkles, Star, Store, Tag, Truck, UserRound, UsersRound, X, Zap } from "lucide-react";
 import { useRef, useState } from "react";
@@ -8,6 +9,8 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getArticleProductHref, type CatalogArticle } from "@/lib/catalog";
+import { addLocaleToPathname, getDictionary, getLocaleFromPathname } from "@/lib/i18n";
+import type { Locale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 type CatalogClientProps = {
@@ -89,6 +92,10 @@ function getCatalogPageHref(page: number, filters: CatalogFilters = {}) {
   return query ? `${pathname}?${query}` : pathname;
 }
 
+function localizeCatalogHref(page: number, filters: CatalogFilters, locale: Locale) {
+  return addLocaleToPathname(getCatalogPageHref(page, filters), locale);
+}
+
 function getTryOnHref(article: CatalogArticle) {
   const params = new URLSearchParams({
     module: article.moduleId,
@@ -102,13 +109,21 @@ function getProductHref(article: CatalogArticle) {
   return getArticleProductHref(article);
 }
 
-function ProductBenefits({ article, compact = false }: { article: CatalogArticle; compact?: boolean }) {
+function ProductBenefits({
+  article,
+  compact = false,
+  dictionary,
+}: {
+  article: CatalogArticle;
+  compact?: boolean;
+  dictionary: ReturnType<typeof getDictionary>;
+}) {
   const rating = formatRating(article);
   const delivery = formatDelivery(article);
   const benefits = [
     article.isOnSale && article.discountPercent ? `-${article.discountPercent}%` : null,
     rating ? `Rated ${rating}` : null,
-    article.freeShipping ? "Free shipping" : null,
+    article.freeShipping ? dictionary.filters.freeShipping : null,
     article.shippingCountry ? `Ships from ${article.shippingCountry}` : null,
     delivery ? `Delivery ${delivery}` : null,
   ].filter(Boolean);
@@ -140,10 +155,16 @@ function ProductBenefits({ article, compact = false }: { article: CatalogArticle
 function ProductCard({
   article,
   featured = false,
+  locale,
+  dictionary,
 }: {
   article: CatalogArticle;
   featured?: boolean;
+  locale: Locale;
+  dictionary: ReturnType<typeof getDictionary>;
 }) {
+  const productHref = addLocaleToPathname(getProductHref(article), locale);
+
   return (
     <article
       className={cn(
@@ -172,7 +193,7 @@ function ProductCard({
         {!featured && (
           <div className="absolute inset-0 flex items-end bg-gradient-to-t from-[#4f365f]/45 to-transparent p-8 opacity-0 transition-opacity duration-500 group-hover:opacity-100">
             <Button asChild className="w-full rounded-full bg-white/90 text-[10px] font-bold uppercase tracking-widest text-black hover:bg-white">
-              <Link href={getProductHref(article)}>Voir l&apos;article</Link>
+              <Link href={productHref}>{dictionary.common.seeArticle}</Link>
             </Button>
           </div>
         )}
@@ -196,9 +217,9 @@ function ProductCard({
               {article.brandPopularity.toFixed(1)}
             </div>
           )}
-          <ProductBenefits article={article} compact={!featured} />
+          <ProductBenefits article={article} compact={!featured} dictionary={dictionary} />
           <p className={cn("mt-5 leading-6 text-stone-500", featured ? "text-base" : "line-clamp-2 text-sm")}>
-            {article.description || article.prompt || "Description à venir."}
+            {article.description || article.prompt || dictionary.catalog.descriptionComingSoon}
           </p>
         </header>
 
@@ -206,21 +227,21 @@ function ProductCard({
           <div className="mb-5 h-[1px] w-full bg-gradient-to-r from-[#C9A0CD]/40 via-stone-200 to-transparent" />
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button asChild className="h-12 flex-1 rounded-full bg-[#1C1C1C] text-[10px] font-black uppercase tracking-[0.22em] text-white hover:bg-[#8d5f9e]">
-              <Link href={getProductHref(article)}>
-                Voir l&apos;article
+              <Link href={productHref}>
+                {dictionary.common.seeArticle}
                 <ArrowUpRight size={15} />
               </Link>
             </Button>
             {article.shopUrl ? (
               <Button asChild className="h-12 flex-1 rounded-full bg-white text-[10px] font-black uppercase tracking-[0.22em] text-[#4f365f] ring-1 ring-[#C9A0CD]/25 hover:bg-[#fbf7ff]">
                 <a href={article.shopUrl} target="_blank" rel="noreferrer">
-                  Boutique
+                  {dictionary.common.shop}
                   <ExternalLink size={14} />
                 </a>
               </Button>
             ) : (
               <Button disabled className="h-12 flex-1 rounded-full bg-white text-[10px] font-black uppercase tracking-[0.22em] text-stone-300 ring-1 ring-stone-200">
-                Boutique
+                {dictionary.common.shop}
               </Button>
             )}
           </div>
@@ -233,10 +254,16 @@ function ProductCard({
 function ProductModal({
   article,
   onClose,
+  locale,
+  dictionary,
 }: {
   article: CatalogArticle;
   onClose: () => void;
+  locale: Locale;
+  dictionary: ReturnType<typeof getDictionary>;
 }) {
+  const tryOnHref = addLocaleToPathname(getTryOnHref(article), locale);
+
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[#1C1C1C]/45 p-4 backdrop-blur-2xl animate-in fade-in duration-300">
       <button className="absolute inset-0 cursor-default" onClick={onClose} aria-label="Fermer le détail produit" />
@@ -284,18 +311,18 @@ function ProductModal({
           </header>
 
           <div className="rounded-[32px] border border-white/80 bg-white/65 p-6 shadow-sm">
-            <h4 className="mb-3 text-[10px] font-black uppercase tracking-[0.28em] text-[#8d5f9e]">Description</h4>
+            <h4 className="mb-3 text-[10px] font-black uppercase tracking-[0.28em] text-[#8d5f9e]">{dictionary.catalog.description}</h4>
             <p className="text-base leading-8 text-stone-600">
-              {article.description || article.prompt || "Description à venir."}
+              {article.description || article.prompt || dictionary.catalog.descriptionComingSoon}
             </p>
           </div>
 
-          <ProductBenefits article={article} />
+          <ProductBenefits article={article} dictionary={dictionary} />
 
           <div className="mt-5 rounded-[32px] border border-white/80 bg-white/65 p-6 shadow-sm">
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0">
-                <h4 className="mb-2 text-[10px] font-black uppercase tracking-[0.28em] text-[#8d5f9e]">Marque</h4>
+                <h4 className="mb-2 text-[10px] font-black uppercase tracking-[0.28em] text-[#8d5f9e]">{dictionary.catalog.brand}</h4>
                 <p className="truncate font-serif text-4xl italic leading-none text-[#1C1C1C]">
                   {article.brand || "Cabine Market"}
                 </p>
@@ -306,7 +333,7 @@ function ProductModal({
                     rel="noreferrer"
                     className="mt-3 inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.22em] text-stone-400 transition-colors hover:text-[#8d5f9e]"
                   >
-                    Site officiel
+                    {dictionary.catalog.officialSite}
                     <ExternalLink size={12} />
                   </a>
                 )}
@@ -323,7 +350,7 @@ function ProductModal({
             <div className="mt-5 flex flex-wrap gap-3">
               <span className="inline-flex items-center gap-2 rounded-full bg-[#f7f1fb] px-4 py-2 text-[9px] font-black uppercase tracking-[0.22em] text-[#8d5f9e]">
                 <Star size={11} className={cn(typeof article.brandPopularity === "number" && article.brandPopularity > 0 && "fill-current")} />
-                {typeof article.brandPopularity === "number" && article.brandPopularity > 0 ? article.brandPopularity.toFixed(1) : "popularité à venir"}
+                {typeof article.brandPopularity === "number" && article.brandPopularity > 0 ? article.brandPopularity.toFixed(1) : dictionary.common.comingSoon}
               </span>
               {article.brandSlug && (
                 <span className="rounded-full bg-white px-4 py-2 text-[9px] font-black uppercase tracking-[0.22em] text-stone-400 ring-1 ring-stone-200">
@@ -335,8 +362,8 @@ function ProductModal({
 
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             <Button asChild className="h-14 rounded-full bg-[#1C1C1C] text-[10px] font-black uppercase tracking-[0.24em] text-white hover:bg-[#8d5f9e]">
-              <Link href={getTryOnHref(article)}>
-                Try On
+              <Link href={tryOnHref}>
+                {dictionary.common.tryOn}
                 <ArrowUpRight size={16} />
               </Link>
             </Button>
@@ -344,14 +371,14 @@ function ProductModal({
             {article.shopUrl ? (
               <Button asChild className="h-14 rounded-full bg-white text-[10px] font-black uppercase tracking-[0.24em] text-[#4f365f] ring-1 ring-[#C9A0CD]/25 hover:bg-[#fbf7ff]">
                 <a href={article.shopUrl} target="_blank" rel="noreferrer">
-                  Acheter
+                  {dictionary.common.buy}
                   <ExternalLink size={15} />
                 </a>
               </Button>
             ) : (
               <Button disabled className="h-14 rounded-full bg-white text-[10px] font-black uppercase tracking-[0.24em] text-stone-300 ring-1 ring-stone-200">
                 <Store size={15} />
-                Lien à venir
+                {dictionary.catalog.storeComingSoon}
               </Button>
             )}
           </div>
@@ -362,7 +389,7 @@ function ProductModal({
             </span>
             <span className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-[9px] font-black uppercase tracking-[0.22em] text-stone-400 ring-1 ring-stone-200">
               <Star size={11} className={cn(typeof article.brandPopularity === "number" && article.brandPopularity > 0 && "fill-[#8d5f9e] text-[#8d5f9e]")} />
-              {typeof article.brandPopularity === "number" && article.brandPopularity > 0 ? article.brandPopularity.toFixed(1) : "popularité à venir"}
+              {typeof article.brandPopularity === "number" && article.brandPopularity > 0 ? article.brandPopularity.toFixed(1) : dictionary.common.comingSoon}
             </span>
             <span className="rounded-full bg-white px-4 py-2 text-[9px] font-black uppercase tracking-[0.22em] text-stone-400 ring-1 ring-stone-200">
               {article.id}
@@ -375,6 +402,13 @@ function ProductModal({
 }
 
 export default function CatalogClient({ articles, brands, categories, filters, pagination }: CatalogClientProps) {
+  const pathname = usePathname();
+  const locale = getLocaleFromPathname(pathname);
+  const dictionary = getDictionary(locale);
+  const common = dictionary.common;
+  const catalog = dictionary.catalog;
+  const filterCopy = dictionary.filters;
+  const globalSearch = dictionary.globalSearch;
   const [activeArticle, setActiveArticle] = useState<CatalogArticle | null>(null);
   const [draftFilters, setDraftFilters] = useState<CatalogFilters>(filters);
   const filterSliderRef = useRef<HTMLDivElement | null>(null);
@@ -393,16 +427,16 @@ export default function CatalogClient({ articles, brands, categories, filters, p
   const selectedCategory = categories.find((entry) => entry.id === filters.category);
   const selectedBrand = brands.find((entry) => entry.id === filters.brand || entry.name === filters.brand);
   const selectedGenderLabel =
-    filters.gender === "men" ? "Homme" : filters.gender === "women" ? "Femme" : filters.gender === "unisex" ? "Unisexe" : "";
+    filters.gender === "men" ? filterCopy.men : filters.gender === "women" ? filterCopy.women : filters.gender === "unisex" ? filterCopy.unisex : "";
   const searchTitle =
     filters.q ||
     selectedCategory?.label ||
     selectedBrand?.name ||
     selectedGenderLabel ||
-    (filters.onSale ? "Best deals" : "") ||
-    (filters.freeShipping ? "Free shipping" : "") ||
-    (filters.sort === "delivery-fast" ? "Fast delivery" : "") ||
-    "Résultats filtrés";
+    (filters.onSale ? filterCopy.bestDeals : "") ||
+    (filters.freeShipping ? filterCopy.freeShipping : "") ||
+    (filters.sort === "delivery-fast" ? filterCopy.fastDelivery : "") ||
+    catalog.filteredFallback;
   const firstVisibleArticle = (pagination.currentPage - 1) * pagination.pageSize + 1;
   const lastVisibleArticle = Math.min(
     (pagination.currentPage - 1) * pagination.pageSize + articles.length,
@@ -410,43 +444,43 @@ export default function CatalogClient({ articles, brands, categories, filters, p
   );
   const benefitFilters = [
     {
-      label: "Homme",
-      description: "Mode homme",
+      label: filterCopy.men,
+      description: filterCopy.menDescription,
       active: draftFilters.gender === "men",
       icon: UserRound,
       onClick: () => setDraftFilters((current) => ({ ...current, gender: current.gender === "men" ? undefined : "men" })),
     },
     {
-      label: "Femme",
-      description: "Mode femme",
+      label: filterCopy.women,
+      description: filterCopy.womenDescription,
       active: draftFilters.gender === "women",
       icon: Sparkles,
       onClick: () => setDraftFilters((current) => ({ ...current, gender: current.gender === "women" ? undefined : "women" })),
     },
     {
-      label: "Unisexe",
-      description: "Styles mixtes",
+      label: filterCopy.unisex,
+      description: filterCopy.unisexDescription,
       active: draftFilters.gender === "unisex",
       icon: UsersRound,
       onClick: () => setDraftFilters((current) => ({ ...current, gender: current.gender === "unisex" ? undefined : "unisex" })),
     },
     {
-      label: "Free shipping",
-      description: "No delivery fee",
+      label: filterCopy.freeShipping,
+      description: filterCopy.freeShippingDescription,
       active: Boolean(draftFilters.freeShipping),
       icon: Truck,
       onClick: () => setDraftFilters((current) => ({ ...current, freeShipping: current.freeShipping ? undefined : true })),
     },
     {
-      label: "Best deals",
-      description: "Promos actives",
+      label: filterCopy.bestDeals,
+      description: filterCopy.bestDealsDescription,
       active: Boolean(draftFilters.onSale),
       icon: BadgePercent,
       onClick: () => setDraftFilters((current) => ({ ...current, onSale: current.onSale ? undefined : true })),
     },
     {
-      label: "Fast delivery",
-      description: "Délai indiqué",
+      label: filterCopy.fastDelivery,
+      description: filterCopy.fastDeliveryDescription,
       active: draftFilters.sort === "delivery-fast",
       icon: Zap,
       onClick: () => setDraftFilters((current) => ({ ...current, sort: current.sort === "delivery-fast" ? "newest" : "delivery-fast" })),
@@ -487,7 +521,7 @@ export default function CatalogClient({ articles, brands, categories, filters, p
       </div>
 
       <section className="sticky top-16 z-[100] border-b border-white/70 bg-white/70 shadow-[0_18px_50px_-32px_rgba(92,54,118,0.55)] backdrop-blur-2xl">
-        <form action="/catalog" className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 lg:px-10">
+        <form action={addLocaleToPathname("/catalog", locale)} className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 lg:px-10">
           {draftFilters.gender ? <input type="hidden" name="gender" value={draftFilters.gender} /> : null}
           {draftFilters.freeShipping ? <input type="hidden" name="freeShipping" value="1" /> : null}
           {draftFilters.onSale ? <input type="hidden" name="onSale" value="1" /> : null}
@@ -500,16 +534,16 @@ export default function CatalogClient({ articles, brands, categories, filters, p
               <Input
                 name="q"
                 defaultValue={filters.q || ""}
-                placeholder="RECHERCHER UN ARTICLE, UNE MARQUE..."
+                placeholder={globalSearch.placeholder}
                 className="h-12 w-full rounded-full border-white/70 bg-white/60 pl-16 pr-6 text-[11px] font-bold uppercase tracking-wider shadow-sm backdrop-blur-2xl transition-all focus:border-[#C9A0CD] focus:ring-2 focus:ring-[#C9A0CD]/20"
               />
             </div>
             <div className="flex shrink-0 gap-2">
               <Button type="submit" className="h-12 rounded-full bg-[#1C1C1C] px-5 text-[9px] font-black uppercase tracking-[0.18em] text-white hover:bg-[#8d5f9e]">
-                Apply filters
+                {catalog.applyFilters}
               </Button>
               <Button asChild className="h-12 rounded-full bg-white/60 px-5 text-[9px] font-black uppercase tracking-[0.18em] text-stone-500 shadow-sm ring-1 ring-white/70 backdrop-blur-2xl hover:bg-white/75">
-                <Link href="/catalog">Reset</Link>
+                <Link href={addLocaleToPathname("/catalog", locale)}>{common.reset}</Link>
               </Button>
             </div>
           </div>
@@ -571,7 +605,7 @@ export default function CatalogClient({ articles, brands, categories, filters, p
                 }
                 className="h-11 min-w-[190px] shrink-0 rounded-full border border-white/70 bg-white/60 px-4 text-[10px] font-black uppercase tracking-[0.16em] text-stone-500 shadow-sm backdrop-blur-2xl outline-none focus:border-[#C9A0CD]"
               >
-                <option value="">All categories</option>
+                <option value="">{common.allCategories}</option>
                 {categories.map((entry) => (
                   <option key={entry.id} value={entry.id}>
                     {entry.label}
@@ -590,7 +624,7 @@ export default function CatalogClient({ articles, brands, categories, filters, p
                 }
                 className="h-11 min-w-[180px] shrink-0 rounded-full border border-white/70 bg-white/60 px-4 text-[10px] font-black uppercase tracking-[0.16em] text-stone-500 shadow-sm backdrop-blur-2xl outline-none focus:border-[#C9A0CD]"
               >
-                <option value="">All brands</option>
+                <option value="">{common.allBrands}</option>
                 {brands.map((entry) => (
                   <option key={entry.id} value={entry.id}>
                     {entry.name}
@@ -609,10 +643,10 @@ export default function CatalogClient({ articles, brands, categories, filters, p
                 }
                 className="h-11 min-w-[180px] shrink-0 rounded-full border border-white/70 bg-white/60 px-4 text-[10px] font-black uppercase tracking-[0.16em] text-stone-500 shadow-sm backdrop-blur-2xl outline-none focus:border-[#C9A0CD]"
               >
-                <option value="newest">Curated order</option>
-                <option value="price-asc">Lowest price</option>
-                <option value="price-desc">Highest price</option>
-                <option value="delivery-fast">Fast delivery</option>
+                <option value="newest">{catalog.curatedOrder}</option>
+                <option value="price-asc">{catalog.lowestPrice}</option>
+                <option value="price-desc">{catalog.highestPrice}</option>
+                <option value="delivery-fast">{catalog.deliveryFast}</option>
               </select>
             </div>
 
@@ -638,16 +672,16 @@ export default function CatalogClient({ articles, brands, categories, filters, p
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#8d5f9e] opacity-75"></span>
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-[#8d5f9e]"></span>
                 </span>
-                Live Catalog
+                {catalog.liveCatalog}
               </div>
               <h1 className="font-serif text-7xl italic leading-[0.85] tracking-tight text-[#1C1C1C] md:text-9xl">
-                La Sélection <br /> <span className="text-[#8d5f9e]">Produit</span>
+                {catalog.heroTitleLine1} <br /> <span className="text-[#8d5f9e]">{catalog.heroTitleLine2}</span>
               </h1>
             </div>
 
             <Button asChild className="group h-16 rounded-full bg-[#1C1C1C] pl-8 pr-4 text-[11px] font-black uppercase tracking-[0.25em] text-white transition-all hover:bg-[#2a2a2a]">
-              <Link href="/lookbook">
-                Voir le lookbook
+              <Link href={addLocaleToPathname("/lookbook", locale)}>
+                {catalog.lookbookCta}
                 <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 transition-colors group-hover:bg-[#8d5f9e]">
                   <ArrowUpRight size={18} />
                 </span>
@@ -656,12 +690,12 @@ export default function CatalogClient({ articles, brands, categories, filters, p
           </div>
 
           {featuredArticle ? (
-            <ProductCard article={featuredArticle} featured />
+            <ProductCard article={featuredArticle} featured locale={locale} dictionary={dictionary} />
           ) : (
             <div className="flex min-h-[420px] flex-col items-center justify-center rounded-[40px] border-2 border-dashed border-stone-200 bg-white/50 text-center">
               <Shirt className="mb-6 text-[#8d5f9e]/50" size={36} />
-              <h2 className="font-serif text-4xl italic text-stone-800">Aucun article</h2>
-              <p className="mt-2 text-stone-400 font-medium">Importe un catalogue pour remplir cette page.</p>
+              <h2 className="font-serif text-4xl italic text-stone-800">{catalog.noArticlesTitle}</h2>
+              <p className="mt-2 text-stone-400 font-medium">{catalog.noArticlesText}</p>
             </div>
           )}
         </header>
@@ -672,12 +706,12 @@ export default function CatalogClient({ articles, brands, categories, filters, p
             <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
               <div>
                 <h2 className="font-serif text-5xl italic text-[#1C1C1C]">
-                  {isSearchMode ? searchTitle : "Tous les articles"}
+                  {isSearchMode ? searchTitle : catalog.allArticles}
                 </h2>
                 <p className="mt-2 text-sm font-medium uppercase tracking-[0.1em] text-stone-500">
                   {isSearchMode
-                    ? `${pagination.totalArticles} résultat${pagination.totalArticles > 1 ? "s" : ""} trouvé${pagination.totalArticles > 1 ? "s" : ""}`
-                    : "Choisissez un article et essayez-le directement dans la cabine"}
+                    ? `${pagination.totalArticles} ${pagination.totalArticles > 1 ? catalog.resultPlural : catalog.resultSingular}`
+                    : catalog.browseHint}
                 </p>
               </div>
             </div>
@@ -685,15 +719,15 @@ export default function CatalogClient({ articles, brands, categories, filters, p
             {!isSearchMode && (
             <div className="flex gap-3 overflow-x-auto pb-2">
               <Link
-                href="/categories"
+                href={addLocaleToPathname("/categories", locale)}
                 className="shrink-0 rounded-full bg-white/70 px-5 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-stone-400 transition-colors hover:text-[#8d5f9e]"
               >
-                Tous
+                {common.allCategories}
               </Link>
               {categories.map((entry) => (
                 <Link
                   key={entry.id}
-                  href={`/categories/${entry.id}`}
+                  href={addLocaleToPathname(`/categories/${entry.id}`, locale)}
                   className="shrink-0 rounded-full bg-white/70 px-5 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-stone-400 transition-colors hover:text-[#8d5f9e]"
                 >
                   {entry.label}
@@ -708,7 +742,7 @@ export default function CatalogClient({ articles, brands, categories, filters, p
             <>
               <div className="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {galleryArticles.map((article) => (
-                  <ProductCard key={article.id} article={article} />
+                  <ProductCard key={article.id} article={article} locale={locale} dictionary={dictionary} />
                 ))}
               </div>
 
@@ -716,16 +750,16 @@ export default function CatalogClient({ articles, brands, categories, filters, p
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">
                     {pagination.totalArticles > 0
-                      ? `Showing ${firstVisibleArticle}-${lastVisibleArticle} of ${pagination.totalArticles} articles`
-                      : "Showing 0 articles"}
+                      ? `${catalog.showing} ${firstVisibleArticle}-${lastVisibleArticle} ${catalog.of} ${pagination.totalArticles} ${catalog.articles}`
+                      : `${catalog.showing} 0 ${catalog.articles}`}
                   </p>
                   <p className="mt-1 text-xs font-semibold text-stone-500">
-                    Page {pagination.currentPage} / {pagination.pageCount}
+                    {catalog.page} {pagination.currentPage} / {pagination.pageCount}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Link
-                    href={getCatalogPageHref(Math.max(1, pagination.currentPage - 1), filters)}
+                    href={localizeCatalogHref(Math.max(1, pagination.currentPage - 1), filters, locale)}
                     aria-disabled={pagination.currentPage <= 1}
                     className={cn(
                       "inline-flex h-10 items-center rounded-full px-4 text-[9px] font-black uppercase tracking-[0.18em] ring-1 transition",
@@ -734,10 +768,10 @@ export default function CatalogClient({ articles, brands, categories, filters, p
                         : "pointer-events-none bg-white/60 text-stone-300 ring-stone-100",
                     )}
                   >
-                    Previous
+                    {common.previous}
                   </Link>
                   <Link
-                    href={getCatalogPageHref(Math.min(pagination.pageCount, pagination.currentPage + 1), filters)}
+                    href={localizeCatalogHref(Math.min(pagination.pageCount, pagination.currentPage + 1), filters, locale)}
                     aria-disabled={pagination.currentPage >= pagination.pageCount}
                     className={cn(
                       "inline-flex h-10 items-center rounded-full px-4 text-[9px] font-black uppercase tracking-[0.18em] ring-1 transition",
@@ -746,7 +780,7 @@ export default function CatalogClient({ articles, brands, categories, filters, p
                         : "pointer-events-none bg-white/60 text-stone-300 ring-stone-100",
                     )}
                   >
-                    Next
+                    {common.next}
                   </Link>
                 </div>
               </div>
@@ -756,15 +790,15 @@ export default function CatalogClient({ articles, brands, categories, filters, p
               <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-xl">
                 <Filter className="text-stone-300" size={32} />
               </div>
-              <h3 className="font-serif text-3xl italic text-stone-800">Aucun résultat</h3>
-              <p className="mt-2 text-stone-400 font-medium">Essayez une autre recherche ou une autre catégorie.</p>
+              <h3 className="font-serif text-3xl italic text-stone-800">{catalog.noResultsTitle}</h3>
+              <p className="mt-2 text-stone-400 font-medium">{catalog.noResultsText}</p>
             </div>
           )}
         </section>
       </div>
 
       {activeArticle && (
-        <ProductModal article={activeArticle} onClose={() => setActiveArticle(null)} />
+        <ProductModal article={activeArticle} onClose={() => setActiveArticle(null)} locale={locale} dictionary={dictionary} />
       )}
     </main>
   );

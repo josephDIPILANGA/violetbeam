@@ -1,14 +1,23 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { ArrowUpRight, ExternalLink, Shirt, Sparkles, Star, Store, Tag } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { getCatalogModuleMeta } from "@/lib/catalog";
+import { addLocaleToPathname, DEFAULT_LOCALE, getDictionary, isLocale } from "@/lib/i18n";
+import type { Locale } from "@/lib/i18n";
 import { getVisibleArticleWhere } from "@/lib/marketplace-visibility";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
+
+async function getRequestLocale(): Promise<Locale> {
+  const headersList = await headers();
+  const requestedLocale = headersList.get("x-violetbeam-locale") || undefined;
+  return isLocale(requestedLocale) ? requestedLocale : DEFAULT_LOCALE;
+}
 
 export async function generateMetadata({
   params,
@@ -63,6 +72,10 @@ export default async function BrandDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+  const locale = await getRequestLocale();
+  const dictionary = getDictionary(locale);
+  const brandsCopy = dictionary.brands;
+  const catalogCopy = dictionary.catalog;
   const brand = await prisma.brand.findUnique({
     where: {
       slug,
@@ -115,27 +128,27 @@ export default async function BrandDetailPage({
           <div className="flex flex-col justify-center">
             <div className="mb-5 inline-flex w-fit items-center gap-2 rounded-full bg-[#8d5f9e]/10 px-4 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.4em] text-[#8d5f9e]">
               <Sparkles size={13} />
-              Brand profile
+              {brandsCopy.profileLabel}
             </div>
             <h1 className="font-serif text-7xl italic leading-[0.85] tracking-tight text-[#1C1C1C] md:text-9xl">
               {brand.name}
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-8 text-stone-500">
-              {brand.description || "Découvrez les articles de cette marque disponibles dans VioletBeam et essayez-les directement dans la cabine."}
+              {brand.description || brandsCopy.detailIntro}
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
               <span className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-[9px] font-black uppercase tracking-[0.22em] text-[#8d5f9e] ring-1 ring-[#C9A0CD]/20">
                 <Star size={12} className={brand.popularity > 0 ? "fill-current" : ""} />
-                {brand.popularity > 0 ? brand.popularity.toFixed(1) : "popularité à venir"}
+                {brand.popularity > 0 ? brand.popularity.toFixed(1) : dictionary.common.comingSoon}
               </span>
               <span className="rounded-full bg-white px-4 py-2 text-[9px] font-black uppercase tracking-[0.22em] text-stone-400 ring-1 ring-stone-200">
-                {brand.articles.length} articles
+                {brand.articles.length} {catalogCopy.articles}
               </span>
               {brand.websiteUrl && (
                 <Button asChild className="h-10 rounded-full bg-[#1C1C1C] px-5 text-[9px] font-black uppercase tracking-[0.2em] text-white hover:bg-[#8d5f9e]">
                   <a href={brand.websiteUrl} target="_blank" rel="noreferrer">
-                    Site officiel
+                    {catalogCopy.officialSite}
                     <ExternalLink size={13} />
                   </a>
                 </Button>
@@ -147,12 +160,12 @@ export default async function BrandDetailPage({
         <section>
           <div className="mb-8 flex flex-col justify-between gap-5 md:flex-row md:items-end">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#8d5f9e]">Brand articles</p>
-              <h2 className="mt-3 font-serif text-6xl italic leading-none text-[#1C1C1C]">Articles disponibles</h2>
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#8d5f9e]">{brandsCopy.brandArticles}</p>
+              <h2 className="mt-3 font-serif text-6xl italic leading-none text-[#1C1C1C]">{brandsCopy.availableArticles}</h2>
             </div>
             <Button asChild className="h-12 rounded-full bg-white px-6 text-[10px] font-black uppercase tracking-[0.22em] text-[#4f365f] ring-1 ring-[#C9A0CD]/25 hover:bg-[#fbf7ff]">
-              <Link href="/catalog">
-                Tout le catalogue
+              <Link href={addLocaleToPathname("/catalog", locale)}>
+                {brandsCopy.allCatalog}
                 <Store size={15} />
               </Link>
             </Button>
@@ -190,15 +203,15 @@ export default async function BrandDetailPage({
                         {article.title}
                       </h3>
                       <p className="mt-4 line-clamp-2 text-sm leading-6 text-stone-500">
-                        {article.description || "Description à venir."}
+                        {article.description || catalogCopy.descriptionComingSoon}
                       </p>
                       <p className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-[#8d5f9e]">
                         {new Intl.NumberFormat("fr-FR", { style: "currency", currency: article.shippingCurrency }).format(Number(article.price))}
                       </p>
                       <div className="mt-6 flex gap-3">
                         <Button asChild className="h-11 flex-1 rounded-full bg-[#1C1C1C] text-[9px] font-black uppercase tracking-[0.2em] text-white hover:bg-[#8d5f9e]">
-                          <Link href={`/cabine?module=${article.category}&article=db-${article.id}`}>
-                            Try On
+                          <Link href={addLocaleToPathname(`/cabine?module=${article.category}&article=db-${article.id}`, locale)}>
+                            {dictionary.common.tryOn}
                             <ArrowUpRight size={13} />
                           </Link>
                         </Button>
@@ -217,7 +230,7 @@ export default async function BrandDetailPage({
             </div>
           ) : (
             <div className="flex min-h-80 items-center justify-center rounded-[40px] border-2 border-dashed border-stone-200 bg-white/50 text-center">
-              <p className="text-sm font-semibold text-stone-400">Aucun article n&apos;est encore lié à cette marque.</p>
+              <p className="text-sm font-semibold text-stone-400">{brandsCopy.noLinkedArticles}</p>
             </div>
           )}
         </section>
