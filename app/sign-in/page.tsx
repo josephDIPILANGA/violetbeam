@@ -1,19 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { FormEvent, useState } from "react";
 import { ArrowUpRight, Loader2, LogIn, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { addLocaleToPathname, getDictionary, getLocaleFromPathname } from "@/lib/i18n";
 import { getZodFieldErrors, signInSchema } from "@/lib/validations/auth";
 
 type SignInField = "email" | "password";
 
 export default function SignInPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const locale = getLocaleFromPathname(pathname);
+  const dictionary = getDictionary(locale);
+  const authCopy = dictionary.auth;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -53,31 +58,31 @@ export default function SignInPage() {
       });
     } catch {
       setIsSubmitting(false);
-      setError("Connexion impossible pour le moment. Verifiez le domaine utilise et reessayez.");
+      setError(authCopy.domainSignInError);
       return;
     }
 
     setIsSubmitting(false);
 
     if (!result) {
-      setError("Connexion impossible pour le moment. Reessayez dans quelques instants.");
+      setError(authCopy.genericSignInError);
       return;
     }
 
     if (result?.error) {
       if (result.error === "EMAIL_NOT_VERIFIED") {
-        setError("Veuillez verifier votre email avant de vous connecter.");
+        setError(authCopy.verifyEmail);
         return;
       }
 
-      setError("Email ou mot de passe incorrect.");
+      setError(authCopy.invalidCredentials);
       return;
     }
 
     const callbackUrl =
       typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("callbackUrl") : null;
 
-    router.push(callbackUrl || "/cabine");
+    router.push(callbackUrl || addLocaleToPathname("/cabine", locale));
     router.refresh();
   };
 
@@ -92,10 +97,10 @@ export default function SignInPage() {
         <div>
           <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-[#8d5f9e]/10 px-4 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.4em] text-[#8d5f9e]">
             <Sparkles size={13} />
-            VioletBeam account
+            {authCopy.accountLabel}
           </div>
           <h1 className="font-serif text-7xl italic leading-[0.85] tracking-tight text-[#1C1C1C] md:text-9xl">
-            Sign in
+            {authCopy.signInTitle}
           </h1>
           <p className="mt-6 max-w-xl text-base leading-8 text-stone-500">
             Retrouvez vos compositions, vos looks sauvegardés et vos futurs essayages dans la cabine.
@@ -122,7 +127,7 @@ export default function SignInPage() {
           </div>
           <div className="space-y-5">
             <label className="block">
-              <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Email</span>
+              <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">{authCopy.email}</span>
               <Input
                 type="email"
                 value={email}
@@ -138,7 +143,7 @@ export default function SignInPage() {
               {fieldErrors.email && <span className="mt-2 block text-xs font-semibold text-red-500">{fieldErrors.email}</span>}
             </label>
             <label className="block">
-              <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Password</span>
+              <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">{authCopy.password}</span>
               <Input
                 type="password"
                 value={password}
@@ -164,13 +169,13 @@ export default function SignInPage() {
             className="mt-8 h-12 w-full rounded-full bg-[#1C1C1C] text-[10px] font-black uppercase tracking-[0.24em] text-white hover:bg-[#8d5f9e]"
           >
             {isSubmitting ? <Loader2 className="animate-spin" size={15} /> : <ArrowUpRight size={15} />}
-            Sign in
+            {authCopy.signInAction}
           </Button>
 
           <p className="mt-6 text-center text-sm text-stone-500">
-            No account yet?{" "}
-            <Link href="/sign-up" className="font-bold text-[#8d5f9e] hover:underline">
-              Sign up
+            {authCopy.noAccount}{" "}
+            <Link href={addLocaleToPathname("/sign-up", locale)} className="font-bold text-[#8d5f9e] hover:underline">
+              {authCopy.signUpLink}
             </Link>
           </p>
         </form>

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
+import { useMemo, useState } from "react";
 import {
   CalendarDays,
   Search,
@@ -18,6 +19,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { type LookbookComposition } from "@/lib/compositions";
+import { addLocaleToPathname, getDictionary, getLocaleFromPathname } from "@/lib/i18n";
+import type { Locale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 type LookbookClientProps = {
@@ -40,14 +43,18 @@ function getSearchText(composition: LookbookComposition) {
 function CompositionCard({
   composition,
   featured = false,
+  locale,
+  dictionary,
   onOpen,
 }: {
   composition: LookbookComposition;
   featured?: boolean;
+  locale: Locale;
+  dictionary: ReturnType<typeof getDictionary>;
   onOpen: (composition: LookbookComposition) => void;
 }) {
   const imageUrl = composition.thumbnailUrl || composition.generatedUrl;
-  const cardHref = composition.href;
+  const cardHref = composition.href ? addLocaleToPathname(composition.href, locale) : undefined;
   const openComposition = () => {
     if (!cardHref) onOpen(composition);
   };
@@ -91,11 +98,11 @@ function CompositionCard({
         <div className="absolute left-6 top-6 flex flex-wrap gap-2">
           <div className="flex items-center gap-2 rounded-full border border-white/20 bg-black/10 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-white backdrop-blur-xl">
             <Sparkles size={12} className="text-purple-300" />
-          {composition.items.length} PIÈCES
+          {composition.items.length} {dictionary.lookbook.pieces}
           </div>
           {composition.sourceType === "agentPost" && (
             <div className="rounded-full border border-white/20 bg-[#8d5f9e]/80 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-white backdrop-blur-xl">
-              Agent
+              {dictionary.lookbook.agent}
             </div>
           )}
         </div>
@@ -109,11 +116,11 @@ function CompositionCard({
                 onClick={(event) => event.stopPropagation()}
                 className="inline-flex h-8 w-full items-center justify-center rounded-full bg-white/90 px-2.5 text-[10px] font-bold uppercase tracking-widest text-black transition-all"
               >
-                Voir le look
+                {dictionary.lookbook.viewLook}
               </Link>
             ) : (
               <span className="inline-flex h-8 w-full items-center justify-center rounded-full bg-white/90 px-2.5 text-[10px] font-bold uppercase tracking-widest text-black transition-all">
-                Voir le look
+                {dictionary.lookbook.viewLook}
               </span>
             )}
           </div>
@@ -179,7 +186,7 @@ function CompositionCard({
               onClick={(event) => event.stopPropagation()}
               className="mt-6 inline-flex h-10 items-center gap-2 rounded-full bg-[#1C1C1C] px-5 text-[9px] font-black uppercase tracking-[0.18em] text-white transition-colors hover:bg-[#8d5f9e]"
             >
-              Detail page
+              {dictionary.lookbook.detailPage}
               <ArrowUpRight size={13} />
             </Link>
           )}
@@ -202,22 +209,24 @@ function formatPrice(price: number | string | undefined, currency = "EUR") {
 
 function CompositionModal({
   composition,
+  dictionary,
   onClose,
 }: {
   composition: LookbookComposition;
+  dictionary: ReturnType<typeof getDictionary>;
   onClose: () => void;
 }) {
   const imageUrl = composition.thumbnailUrl || composition.generatedUrl;
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[#1C1C1C]/45 p-4 backdrop-blur-2xl animate-in fade-in duration-300">
-      <button className="absolute inset-0 cursor-default" onClick={onClose} aria-label="Fermer le détail" />
+      <button className="absolute inset-0 cursor-default" onClick={onClose} aria-label={dictionary.lookbook.detailPage} />
 
       <section className="relative grid max-h-[92vh] w-full max-w-6xl overflow-hidden rounded-[40px] border border-white/80 bg-[#FDFBFF]/95 shadow-2xl shadow-purple-950/20 md:grid-cols-[0.95fr_1.05fr]">
         <button
           onClick={onClose}
           className="absolute right-5 top-5 z-20 flex size-11 items-center justify-center rounded-full bg-white/85 text-[#1C1C1C] shadow-lg backdrop-blur-xl transition-colors hover:bg-white"
-          aria-label="Fermer"
+          aria-label={dictionary.cabine.close}
         >
           <X size={18} />
         </button>
@@ -228,11 +237,11 @@ function CompositionModal({
           <div className="absolute bottom-8 left-8 right-8">
             <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.25em] text-white backdrop-blur-xl ring-1 ring-white/25">
               <Sparkles size={13} className="text-purple-200" />
-              {composition.sourceType === "agentPost" ? "VioletBeam Agent" : "Composition"}
+              {composition.sourceType === "agentPost" ? "VioletBeam Agent" : dictionary.lookbook.composition}
             </div>
             <h2 className="line-clamp-2 font-serif text-4xl italic leading-[0.95] text-white md:text-5xl lg:text-6xl">{composition.name}</h2>
             <p className="mt-4 text-[10px] font-black uppercase tracking-[0.3em] text-white/70">
-              {composition.sourceLabel || composition.userName || "CABINE STUDIO"}
+              {composition.sourceLabel || composition.userName || "Cabine Studio"}
             </p>
           </div>
         </div>
@@ -243,9 +252,9 @@ function CompositionModal({
               <CalendarDays size={14} strokeWidth={2.5} />
               <span>{new Date(composition.createdAt).toLocaleDateString("fr-FR")}</span>
             </div>
-            <h3 className="font-serif text-4xl italic leading-none text-[#1C1C1C]">Articles du look</h3>
+            <h3 className="font-serif text-4xl italic leading-none text-[#1C1C1C]">{dictionary.lookbook.lookItems}</h3>
             <p className="mt-3 text-sm leading-6 text-stone-500">
-              Les prix et liens boutique apparaîtront automatiquement quand les articles seront enrichis dans le catalogue.
+              {dictionary.lookbook.enrichmentHint}
             </p>
           </header>
 
@@ -279,10 +288,10 @@ function CompositionModal({
 
                     <h4 className="truncate font-serif text-2xl italic leading-none text-[#1C1C1C]">{item.name}</h4>
                     <p className="mt-1 text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">
-                      {item.brand || "Maison partenaire"}
+                      {item.brand || dictionary.lookbook.partnerBrand}
                     </p>
                     <p className="mt-3 line-clamp-2 text-sm leading-5 text-stone-500">
-                      {item.description || item.prompt || "Description à venir."}
+                      {item.description || item.prompt || dictionary.catalog.descriptionComingSoon}
                     </p>
 
                     {item.shopUrl ? (
@@ -292,13 +301,13 @@ function CompositionModal({
                         rel="noreferrer"
                         className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#1C1C1C] px-4 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-white transition-colors hover:bg-[#8d5f9e]"
                       >
-                        Boutique
+                        {dictionary.common.shop}
                         <ExternalLink size={12} />
                       </a>
                     ) : (
                       <span className="mt-4 inline-flex items-center gap-2 rounded-full bg-stone-100 px-4 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-stone-400">
                         <Store size={12} />
-                        Lien à venir
+                        {dictionary.catalog.storeComingSoon}
                       </span>
                     )}
                   </div>
@@ -307,7 +316,7 @@ function CompositionModal({
             ) : (
               <div className="flex min-h-48 flex-col items-center justify-center rounded-[32px] border-2 border-dashed border-stone-200 bg-white/60 text-center">
                 <Shirt className="mb-4 text-stone-300" size={32} />
-                <p className="font-serif text-3xl italic text-stone-800">Aucun article lié</p>
+                <p className="font-serif text-3xl italic text-stone-800">{dictionary.lookbook.noLinkedArticle}</p>
               </div>
             )}
           </div>
@@ -318,6 +327,12 @@ function CompositionModal({
 }
 
 export default function LookbookClient({ compositions = [] }: LookbookClientProps) {
+  const pathname = usePathname();
+  const locale = getLocaleFromPathname(pathname);
+  const dictionary = getDictionary(locale);
+  const common = dictionary.common;
+  const catalogCopy = dictionary.catalog;
+  const lookbookCopy = dictionary.lookbook;
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [activeComposition, setActiveComposition] = useState<LookbookComposition | null>(null);
@@ -340,16 +355,6 @@ export default function LookbookClient({ compositions = [] }: LookbookClientProp
     (safePage - 1) * GALLERY_PAGE_SIZE,
     safePage * GALLERY_PAGE_SIZE,
   );
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [search]);
-
-  useEffect(() => {
-    if (currentPage > pageCount) {
-      setCurrentPage(pageCount);
-    }
-  }, [currentPage, pageCount]);
 
   return (
     <main className="min-h-screen bg-[#FDFBFF] text-[#1C1C1C] font-sans">
@@ -375,16 +380,16 @@ export default function LookbookClient({ compositions = [] }: LookbookClientProp
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#8d5f9e] opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-[#8d5f9e]"></span>
                 </span>
-                LIVE LOOKBOOK
+                {lookbookCopy.liveLabel}
               </div>
               <h1 className="font-serif text-7xl md:text-9xl italic leading-[0.85] tracking-tight text-[#1C1C1C]">
-                L&apos;Atelier <br /> <span className="text-[#8d5f9e]">Créatif</span>
+                {lookbookCopy.titleLine1} <br /> <span className="text-[#8d5f9e]">{lookbookCopy.titleLine2}</span>
               </h1>
             </div>
 
             <Button asChild className="group h-16 rounded-full bg-[#1C1C1C] pl-8 pr-4 text-[11px] font-black uppercase tracking-[0.25em] text-white hover:bg-[#2a2a2a] transition-all flex items-center gap-4">
-              <Link href="/cabine">
-                Créer un look
+              <Link href={addLocaleToPathname("/cabine", locale)}>
+                {lookbookCopy.createLook}
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 group-hover:bg-[#8d5f9e] transition-colors">
                   <ArrowUpRight size={18} />
                 </div>
@@ -396,11 +401,11 @@ export default function LookbookClient({ compositions = [] }: LookbookClientProp
           {featuredComposition ? (
             <div className="grid items-stretch gap-8 lg:grid-cols-12">
               <div className="lg:col-span-8">
-                <CompositionCard composition={featuredComposition} featured onOpen={setActiveComposition} />
+                <CompositionCard composition={featuredComposition} featured locale={locale} dictionary={dictionary} onOpen={setActiveComposition} />
               </div>
               <div className="flex h-full flex-col gap-6 lg:col-span-4">
                 <div className="flex items-center justify-between px-2">
-                  <h3 className="text-[10px] font-black uppercase tracking-widest text-stone-400">Tendances Récentes</h3>
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-stone-400">{lookbookCopy.recentTrends}</h3>
                   <button
                     type="button"
                     onClick={() => {
@@ -409,7 +414,7 @@ export default function LookbookClient({ compositions = [] }: LookbookClientProp
                     }}
                     className="text-[10px] font-bold uppercase tracking-tighter text-[#8d5f9e] hover:underline"
                   >
-                    Voir tout
+                    {lookbookCopy.viewAll}
                   </button>
                 </div>
                 {secondaryCompositions.map((composition) => (
@@ -432,7 +437,7 @@ export default function LookbookClient({ compositions = [] }: LookbookClientProp
                     <div className="flex flex-1 flex-col justify-center p-6">
                       <h4 className="font-serif text-xl italic text-[#1C1C1C] line-clamp-1">{composition.name}</h4>
                       <p className="mt-1 text-[9px] font-bold uppercase tracking-widest text-[#8d5f9e]/60">
-                        {composition.items.length} Articles
+                        {composition.items.length} {catalogCopy.articles}
                       </p>
                     </div>
                   </button>
@@ -444,9 +449,9 @@ export default function LookbookClient({ compositions = [] }: LookbookClientProp
               <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-xl mb-6">
                 <Sparkles className="text-[#8d5f9e]/50" size={32} />
               </div>
-              <h3 className="font-serif text-4xl italic text-stone-800">Aucune composition</h3>
+              <h3 className="font-serif text-4xl italic text-stone-800">{lookbookCopy.noCompositionTitle}</h3>
               <p className="mt-2 max-w-md text-stone-400 font-medium">
-                Les looks validés depuis la cabine apparaîtront ici.
+                {lookbookCopy.noCompositionText}
               </p>
             </div>
           )}
@@ -456,9 +461,9 @@ export default function LookbookClient({ compositions = [] }: LookbookClientProp
         <section className="space-y-12">
           <div className="flex flex-col items-center justify-between gap-8 border-t border-stone-200 pt-16 md:flex-row">
             <div className="text-left w-full md:w-auto">
-              <h2 className="font-serif text-5xl italic text-[#1C1C1C]">La Galerie</h2>
+              <h2 className="font-serif text-5xl italic text-[#1C1C1C]">{lookbookCopy.galleryTitle}</h2>
               <p className="mt-2 text-sm text-stone-500 uppercase tracking-[0.1em] font-medium">
-                Explorez l&apos;inspiration de la communauté
+                {lookbookCopy.galleryIntro}
               </p>
             </div>
 
@@ -468,8 +473,11 @@ export default function LookbookClient({ compositions = [] }: LookbookClientProp
               </div>
               <Input
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="RECHERCHER UN STYLE, UNE MARQUE..."
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setCurrentPage(1);
+                }}
+                placeholder={lookbookCopy.searchPlaceholder}
                 className="w-full h-14 rounded-full border-stone-200 bg-white pl-16 pr-6 text-[11px] font-bold uppercase tracking-wider shadow-sm transition-all focus:ring-2 focus:ring-[#C9A0CD]/20 focus:border-[#C9A0CD]"
               />
             </div>
@@ -479,17 +487,17 @@ export default function LookbookClient({ compositions = [] }: LookbookClientProp
             <>
               <div className="grid gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
                 {paginatedCompositions.map((composition) => (
-                  <CompositionCard key={composition.id} composition={composition} onOpen={setActiveComposition} />
+                  <CompositionCard key={composition.id} composition={composition} locale={locale} dictionary={dictionary} onOpen={setActiveComposition} />
                 ))}
               </div>
 
               <div className="flex flex-col gap-3 rounded-[28px] border border-white/80 bg-white/55 p-4 shadow-2xl shadow-purple-900/5 backdrop-blur-2xl sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">
-                    Showing {(safePage - 1) * GALLERY_PAGE_SIZE + 1}-{Math.min(safePage * GALLERY_PAGE_SIZE, filteredCompositions.length)} of {filteredCompositions.length} looks
+                    {catalogCopy.showing} {(safePage - 1) * GALLERY_PAGE_SIZE + 1}-{Math.min(safePage * GALLERY_PAGE_SIZE, filteredCompositions.length)} {catalogCopy.of} {filteredCompositions.length} {lookbookCopy.looks}
                   </p>
                   <p className="mt-1 text-xs font-semibold text-stone-500">
-                    Page {safePage} / {pageCount}
+                    {catalogCopy.page} {safePage} / {pageCount}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -504,7 +512,7 @@ export default function LookbookClient({ compositions = [] }: LookbookClientProp
                         : "cursor-not-allowed bg-white/60 text-stone-300 ring-stone-100",
                     )}
                   >
-                    Previous
+                    {common.previous}
                   </button>
                   <button
                     type="button"
@@ -517,7 +525,7 @@ export default function LookbookClient({ compositions = [] }: LookbookClientProp
                         : "cursor-not-allowed bg-white/60 text-stone-300 ring-stone-100",
                     )}
                   >
-                    Next
+                    {common.next}
                   </button>
                 </div>
               </div>
@@ -527,9 +535,9 @@ export default function LookbookClient({ compositions = [] }: LookbookClientProp
               <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-xl mb-6">
                 <Filter className="text-stone-300" size={32} />
               </div>
-              <h3 className="font-serif text-3xl italic text-stone-800">Aucun résultat</h3>
+              <h3 className="font-serif text-3xl italic text-stone-800">{catalogCopy.noResultsTitle}</h3>
               <p className="mt-2 text-stone-400 font-medium">
-                Essayez d&apos;autres mots-clés ou explorez les tendances.
+                {lookbookCopy.noResultsText}
               </p>
             </div>
           )}
@@ -537,12 +545,12 @@ export default function LookbookClient({ compositions = [] }: LookbookClientProp
 
         {/* Pied de page */}
         <footer className="mt-32 border-t border-stone-100 py-12 text-center text-[10px] font-bold uppercase tracking-[0.3em] text-stone-400">
-          © {new Date().getFullYear()} CABINE STUDIO — PARIS / BRUXELLES
+          © {new Date().getFullYear()} {lookbookCopy.footer}
         </footer>
       </div>
 
       {activeComposition && (
-        <CompositionModal composition={activeComposition} onClose={() => setActiveComposition(null)} />
+        <CompositionModal composition={activeComposition} dictionary={dictionary} onClose={() => setActiveComposition(null)} />
       )}
     </main>
   );

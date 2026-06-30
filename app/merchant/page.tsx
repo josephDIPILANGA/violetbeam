@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -19,6 +20,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { authOptions } from "@/lib/auth";
 import { getArticleProductHref, slugifyCatalogText } from "@/lib/catalog";
+import { addLocaleToPathname, DEFAULT_LOCALE, getDictionary, isLocale } from "@/lib/i18n";
+import type { Locale } from "@/lib/i18n";
 import { getMerchantPublishingState } from "@/lib/merchant-access";
 import {
   HIDDEN_MARKETPLACE_TAG_NAME,
@@ -62,6 +65,12 @@ function formatPrice(price: unknown) {
     style: "currency",
     currency: "EUR",
   }).format(Number(price || 0));
+}
+
+async function getRequestLocale(): Promise<Locale> {
+  const headersList = await headers();
+  const requestedLocale = headersList.get("x-violetbeam-locale") || undefined;
+  return isLocale(requestedLocale) ? requestedLocale : DEFAULT_LOCALE;
 }
 
 function isHidden(article: Pick<MerchantArticle, "tags">) {
@@ -117,12 +126,12 @@ function getMerchantArticleOwnershipWhere(shopDomain: string) {
   };
 }
 
-async function getCurrentMerchantUser() {
+async function getCurrentMerchantUser(locale: Locale) {
   const session = await getServerSession(authOptions);
   const userId = Number(session?.user?.id);
 
   if (!session?.user || !Number.isFinite(userId)) {
-    redirect("/sign-in?callbackUrl=/merchant");
+    redirect(`${addLocaleToPathname("/sign-in", locale)}?callbackUrl=${encodeURIComponent(addLocaleToPathname("/merchant", locale))}`);
   }
 
   const user = await prisma.user.findUnique({
@@ -151,7 +160,7 @@ async function getCurrentMerchantUser() {
   });
 
   if (!user) {
-    redirect("/sign-in?callbackUrl=/merchant");
+    redirect(`${addLocaleToPathname("/sign-in", locale)}?callbackUrl=${encodeURIComponent(addLocaleToPathname("/merchant", locale))}`);
   }
 
   return user;
@@ -285,7 +294,10 @@ export async function showMerchantArticle(formData: FormData) {
 }
 
 export default async function MerchantPage() {
-  const user = await getCurrentMerchantUser();
+  const locale = await getRequestLocale();
+  const dictionary = getDictionary(locale);
+  const copy = dictionary.merchantStudio;
+  const user = await getCurrentMerchantUser(locale);
   const merchant = user.merchantProfile;
   const merchantStatus = getMerchantPublishingState(
     merchant
@@ -306,22 +318,19 @@ export default async function MerchantPage() {
           <div className="flex size-16 items-center justify-center rounded-2xl bg-[#8d5f9e]/10 text-[#8d5f9e]">
             <Store size={28} />
           </div>
-          <p className="mt-8 text-[10px] font-black uppercase tracking-[0.28em] text-[#8d5f9e]">Merchant access</p>
-          <h1 className="mt-3 font-serif text-6xl italic leading-none md:text-7xl">Create your merchant profile</h1>
-          <p className="mt-6 max-w-2xl text-base leading-8 text-stone-500">
-            Pour publier et gérer des articles Shopify dans VioletBeam, votre compte doit être activé comme marchand.
-            Ajoutez votre boutique Shopify dans votre profil, puis revenez ici pour gérer vos produits.
-          </p>
+          <p className="mt-8 text-[10px] font-black uppercase tracking-[0.28em] text-[#8d5f9e]">{copy.accessLabel}</p>
+          <h1 className="mt-3 font-serif text-6xl italic leading-none md:text-7xl">{copy.createTitle}</h1>
+          <p className="mt-6 max-w-2xl text-base leading-8 text-stone-500">{copy.createIntro}</p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Button asChild className="h-12 rounded-full bg-[#1C1C1C] px-6 text-[10px] font-black uppercase tracking-[0.2em] text-white hover:bg-[#8d5f9e]">
-              <Link href="/account">
+              <Link href={addLocaleToPathname("/account", locale)}>
                 <Pencil size={15} />
-                Complete profile
+                {copy.completeProfile}
               </Link>
             </Button>
             <Button asChild className="h-12 rounded-full bg-white px-6 text-[10px] font-black uppercase tracking-[0.2em] text-[#4f365f] ring-1 ring-[#C9A0CD]/25 hover:bg-[#fbf7ff]">
-              <Link href="/catalog">
-                Browse catalog
+              <Link href={addLocaleToPathname("/catalog", locale)}>
+                {copy.browseCatalog}
                 <ArrowUpRight size={15} />
               </Link>
             </Button>
@@ -338,21 +347,21 @@ export default async function MerchantPage() {
           <div className="flex size-16 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
             <TriangleAlert size={28} />
           </div>
-          <p className="mt-8 text-[10px] font-black uppercase tracking-[0.28em] text-[#8d5f9e]">Merchant access</p>
-          <h1 className="mt-3 font-serif text-6xl italic leading-none md:text-7xl">Merchant access paused</h1>
+          <p className="mt-8 text-[10px] font-black uppercase tracking-[0.28em] text-[#8d5f9e]">{copy.accessLabel}</p>
+          <h1 className="mt-3 font-serif text-6xl italic leading-none md:text-7xl">{copy.pausedTitle}</h1>
           <p className="mt-6 max-w-2xl text-base leading-8 text-stone-500">
-            {merchantStatus.message} Modifiez votre profil ou verifiez votre email avant de publier ou gerer des articles Shopify sur VioletBeam.
+            {merchantStatus.message} {copy.pausedSuffix}
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Button asChild className="h-12 rounded-full bg-[#1C1C1C] px-6 text-[10px] font-black uppercase tracking-[0.2em] text-white hover:bg-[#8d5f9e]">
-              <Link href="/account">
+              <Link href={addLocaleToPathname("/account", locale)}>
                 <Pencil size={15} />
-                Update profile
+                {copy.updateProfile}
               </Link>
             </Button>
             <Button asChild className="h-12 rounded-full bg-white px-6 text-[10px] font-black uppercase tracking-[0.2em] text-[#4f365f] ring-1 ring-[#C9A0CD]/25 hover:bg-[#fbf7ff]">
-              <Link href="/catalog">
-                Browse catalog
+              <Link href={addLocaleToPathname("/catalog", locale)}>
+                {copy.browseCatalog}
                 <ArrowUpRight size={15} />
               </Link>
             </Button>
@@ -405,23 +414,20 @@ export default async function MerchantPage() {
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-[#8d5f9e]/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.28em] text-[#8d5f9e]">
               <ShoppingBag size={13} />
-              Merchant studio
+              {copy.studioLabel}
             </div>
             <h1 className="mt-5 font-serif text-6xl italic leading-none md:text-8xl">{merchant.shopName}</h1>
-            <p className="mt-5 max-w-2xl text-base leading-8 text-stone-500">
-              Gérez les articles Shopify que votre boutique a envoyés vers VioletBeam. Vous pouvez garder un produit en ligne,
-              le masquer temporairement, puis le remettre dans la marketplace plus tard.
-            </p>
+            <p className="mt-5 max-w-2xl text-base leading-8 text-stone-500">{copy.intro}</p>
             <div className="mt-7 flex flex-wrap gap-3">
               <Button asChild className="h-11 rounded-full bg-[#1C1C1C] px-5 text-[10px] font-black uppercase tracking-[0.2em] text-white hover:bg-[#8d5f9e]">
-                <Link href="/account">
+                <Link href={addLocaleToPathname("/account", locale)}>
                   <Pencil size={14} />
-                  Edit profile
+                  {copy.editProfile}
                 </Link>
               </Button>
               <Button asChild className="h-11 rounded-full bg-white px-5 text-[10px] font-black uppercase tracking-[0.2em] text-[#4f365f] ring-1 ring-[#C9A0CD]/25 hover:bg-[#fbf7ff]">
                 <a href={`https://${merchant.shopDomain}`} target="_blank" rel="noreferrer">
-                  Open shop
+                  {copy.openShop}
                   <ArrowUpRight size={14} />
                 </a>
               </Button>
@@ -434,28 +440,28 @@ export default async function MerchantPage() {
                 {merchant.approvedForPosting ? <ShieldCheck size={22} /> : <TriangleAlert size={22} />}
               </span>
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">Status</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">{copy.status}</p>
                 <p className="text-sm font-black text-[#4f365f]">
-                  {merchant.approvedForPosting ? "Approved for marketplace publishing" : "Pending approval"}
+                  {merchant.approvedForPosting ? copy.approved : copy.pending}
                 </p>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div className="rounded-2xl bg-white/70 p-4 text-center">
                 <p className="text-2xl font-black">{articles.length}</p>
-                <p className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-stone-400">Products</p>
+                <p className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-stone-400">{copy.products}</p>
               </div>
               <div className="rounded-2xl bg-white/70 p-4 text-center">
                 <p className="text-2xl font-black text-emerald-600">{visibleCount}</p>
-                <p className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-stone-400">Visible</p>
+                <p className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-stone-400">{copy.visible}</p>
               </div>
               <div className="rounded-2xl bg-white/70 p-4 text-center">
                 <p className="text-2xl font-black text-[#8d5f9e]">{hiddenCount}</p>
-                <p className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-stone-400">Hidden</p>
+                <p className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-stone-400">{copy.hidden}</p>
               </div>
             </div>
             <div className="rounded-2xl bg-white/70 px-4 py-3 text-xs font-semibold text-stone-500">
-              <span className="block text-[9px] font-black uppercase tracking-[0.18em] text-stone-400">Shop domain</span>
+              <span className="block text-[9px] font-black uppercase tracking-[0.18em] text-stone-400">{copy.shopDomain}</span>
               {merchant.shopDomain}
             </div>
           </aside>
@@ -464,12 +470,12 @@ export default async function MerchantPage() {
         <section className="mt-8 rounded-[38px] border border-white/80 bg-white/65 p-5 shadow-2xl shadow-purple-900/5 backdrop-blur-2xl lg:p-7">
           <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-end">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#8d5f9e]">Shopify products</p>
-              <h2 className="mt-2 font-serif text-5xl italic leading-none">Marketplace inventory</h2>
+              <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#8d5f9e]">{copy.shopifyProducts}</p>
+              <h2 className="mt-2 font-serif text-5xl italic leading-none">{copy.inventory}</h2>
             </div>
             <div className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-stone-500 ring-1 ring-white/80">
               <BadgeCheck size={13} className="text-[#8d5f9e]" />
-              Synced by Shopify
+              {copy.synced}
             </div>
           </div>
 
@@ -504,7 +510,7 @@ export default async function MerchantPage() {
                           }`}
                         >
                           {articleHidden ? <EyeOff size={11} /> : <Eye size={11} />}
-                          {articleHidden ? "Hidden" : "Live"}
+                          {articleHidden ? copy.hiddenStatus : copy.liveStatus}
                         </span>
                         <span className="rounded-full bg-[#8d5f9e]/10 px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-[#8d5f9e]">
                           {article.category}
@@ -512,12 +518,12 @@ export default async function MerchantPage() {
                       </div>
                       <h3 className="mt-3 line-clamp-1 text-xl font-black">{article.title}</h3>
                       <p className="mt-2 line-clamp-2 max-w-3xl text-sm leading-6 text-stone-500">
-                        {article.description || "No product description yet."}
+                        {article.description || copy.noDescription}
                       </p>
                       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] font-black uppercase tracking-[0.16em] text-stone-400">
                         <span>{article.brand || merchant.shopName}</span>
                         <span>{formatPrice(article.price)}</span>
-                        <span>Updated {article.updatedAt.toLocaleDateString("fr-FR")}</span>
+                        <span>{copy.updated} {article.updatedAt.toLocaleDateString(locale === "fr" ? "fr-FR" : "en-US")}</span>
                       </div>
                     </div>
 
@@ -527,7 +533,7 @@ export default async function MerchantPage() {
                           <input type="hidden" name="articleId" value={article.id} />
                           <Button className="h-10 w-full rounded-full bg-[#1C1C1C] px-4 text-[9px] font-black uppercase tracking-[0.18em] text-white hover:bg-[#8d5f9e]">
                             <EyeOff size={13} />
-                            Hide
+                            {copy.hide}
                           </Button>
                         </form>
                       ) : (
@@ -535,13 +541,13 @@ export default async function MerchantPage() {
                           <input type="hidden" name="articleId" value={article.id} />
                           <Button className="h-10 w-full rounded-full bg-[#8d5f9e] px-4 text-[9px] font-black uppercase tracking-[0.18em] text-white hover:bg-[#1C1C1C]">
                             <Eye size={13} />
-                            Show
+                            {copy.show}
                           </Button>
                         </form>
                       )}
                       <Button asChild className="h-10 rounded-full bg-white px-4 text-[9px] font-black uppercase tracking-[0.18em] text-[#4f365f] ring-1 ring-[#C9A0CD]/25 hover:bg-[#fbf7ff]">
-                        <Link href={getArticleProductHref(article)}>
-                          View
+                        <Link href={addLocaleToPathname(getArticleProductHref(article), locale)}>
+                          {copy.view}
                           <ArrowUpRight size={13} />
                         </Link>
                       </Button>
@@ -563,11 +569,8 @@ export default async function MerchantPage() {
               <div className="flex size-14 items-center justify-center rounded-2xl bg-[#8d5f9e]/10 text-[#8d5f9e]">
                 <Package size={25} />
               </div>
-              <h3 className="mt-5 text-2xl font-black">No Shopify products yet</h3>
-              <p className="mt-2 max-w-md text-sm leading-6 text-stone-500">
-                Générez une fiche produit depuis l'application Shopify VioletBeam, publiez d'abord dans Shopify,
-                puis envoyez-la vers VioletBeam.
-              </p>
+              <h3 className="mt-5 text-2xl font-black">{copy.noProductsTitle}</h3>
+              <p className="mt-2 max-w-md text-sm leading-6 text-stone-500">{copy.noProductsText}</p>
             </div>
           )}
         </section>

@@ -1,10 +1,13 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { CheckCircle2, LogIn, Store, UserCog } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { authOptions } from "@/lib/auth";
+import { addLocaleToPathname, DEFAULT_LOCALE, getDictionary, isLocale } from "@/lib/i18n";
+import type { Locale } from "@/lib/i18n";
 import { getMerchantPublishingState } from "@/lib/merchant-access";
 import { prisma } from "@/lib/prisma";
 
@@ -22,20 +25,29 @@ function normalizeShopDomain(value?: string) {
     .replace(/\/.*$/, "");
 }
 
+async function getRequestLocale(): Promise<Locale> {
+  const headersList = await headers();
+  const requestedLocale = headersList.get("x-violetbeam-locale") || undefined;
+  return isLocale(requestedLocale) ? requestedLocale : DEFAULT_LOCALE;
+}
+
 export default async function ShopifyMerchantConnectPage({ searchParams }: PageProps) {
+  const locale = await getRequestLocale();
+  const dictionary = getDictionary(locale);
+  const copy = dictionary.shopifyConnect;
   const params = (await searchParams) || {};
   const shopDomain = normalizeShopDomain(params.shop);
 
   if (!shopDomain) {
-    redirect("/sign-in");
+    redirect(addLocaleToPathname("/sign-in", locale));
   }
 
   const session = await getServerSession(authOptions);
   const userId = Number(session?.user?.id);
 
   if (!session?.user || !Number.isFinite(userId)) {
-    const callbackUrl = `/merchant/shopify/connect?shop=${encodeURIComponent(shopDomain)}`;
-    redirect(`/sign-in?callbackUrl=${encodeURIComponent(callbackUrl)}`);
+    const callbackUrl = `${addLocaleToPathname("/merchant/shopify/connect", locale)}?shop=${encodeURIComponent(shopDomain)}`;
+    redirect(`${addLocaleToPathname("/sign-in", locale)}?callbackUrl=${encodeURIComponent(callbackUrl)}`);
   }
 
   const [existingForShop, currentUser] = await Promise.all([
@@ -81,7 +93,7 @@ export default async function ShopifyMerchantConnectPage({ searchParams }: PageP
     !existingForShop;
 
   if (needsMerchantProfile) {
-    redirect(`/account?shop=${encodeURIComponent(shopDomain)}`);
+    redirect(`${addLocaleToPathname("/account", locale)}?shop=${encodeURIComponent(shopDomain)}`);
   }
 
   return (
@@ -91,36 +103,40 @@ export default async function ShopifyMerchantConnectPage({ searchParams }: PageP
           {isLinkedToCurrentUser ? <CheckCircle2 size={24} /> : merchantShopMismatch ? <UserCog size={24} /> : <Store size={24} />}
         </div>
 
-        <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#8d5f9e]">Shopify merchant access</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#8d5f9e]">{copy.label}</p>
         <h1 className="mt-3 font-serif text-5xl italic tracking-tight">
           {isLinkedToCurrentUser
             ? currentMerchantStatus.active
-              ? "Boutique connectee"
-              : "Acces marchand incomplet"
+              ? copy.connectedTitle
+              : copy.incompleteTitle
             : merchantShopMismatch
-              ? "Profil marchand different"
-              : "Boutique deja liee"}
+              ? copy.mismatchTitle
+              : copy.linkedTitle}
         </h1>
 
         <p className="mt-5 text-sm leading-7 text-stone-500">
           {isLinkedToCurrentUser
             ? currentMerchantStatus.active
-              ? `${shopDomain} est liee a votre compte marchand VioletBeam. Vous pouvez retourner dans Shopify et ajouter vos articles a la marketplace.`
-              : `${shopDomain} est liee a votre compte, mais ${currentMerchantStatus.message.toLowerCase()}`
+              ? copy.connectedMessage.replace("{shopDomain}", shopDomain)
+              : copy.incompleteMessage
+                  .replace("{shopDomain}", shopDomain)
+                  .replace("{status}", currentMerchantStatus.message.toLowerCase())
             : merchantShopMismatch
-              ? `Votre compte marchand est deja lie a ${currentUser?.merchantProfile?.shopDomain}. Modifiez votre profil marchand si vous voulez utiliser ${shopDomain}.`
-              : `${shopDomain} est deja liee a un autre compte VioletBeam. Connectez-vous avec le bon compte ou contactez VioletBeam.`}
+              ? copy.mismatchMessage
+                  .replace("{currentShopDomain}", currentUser?.merchantProfile?.shopDomain || "")
+                  .replace("{shopDomain}", shopDomain)
+              : copy.linkedMessage.replace("{shopDomain}", shopDomain)}
         </p>
 
         <div className="mt-8 flex flex-wrap gap-3">
           <Button asChild className="rounded-full bg-[#1C1C1C] text-[10px] font-black uppercase tracking-[0.22em] text-white hover:bg-[#8d5f9e]">
-            <Link href={isLinkedToOtherUser ? "/sign-in" : `/account?shop=${encodeURIComponent(shopDomain)}`}>
+            <Link href={isLinkedToOtherUser ? addLocaleToPathname("/sign-in", locale) : `${addLocaleToPathname("/account", locale)}?shop=${encodeURIComponent(shopDomain)}`}>
               {isLinkedToOtherUser ? <LogIn size={15} /> : <UserCog size={15} />}
-              {isLinkedToOtherUser ? "Sign in" : "Edit profile"}
+              {isLinkedToOtherUser ? copy.signIn : copy.editProfile}
             </Link>
           </Button>
           <Button asChild variant="outline" className="rounded-full border-[#8d5f9e]/25 text-[10px] font-black uppercase tracking-[0.22em] text-[#8d5f9e]">
-            <Link href="/catalog">Open VioletBeam</Link>
+            <Link href={addLocaleToPathname("/catalog", locale)}>{copy.openVioletBeam}</Link>
           </Button>
         </div>
       </section>

@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { getServerSession } from "next-auth";
 import { Check, Sparkles, Zap } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { authOptions } from "@/lib/auth";
 import { BILLING_PLANS, formatPlanPrice } from "@/lib/billing/plans";
+import { addLocaleToPathname, DEFAULT_LOCALE, getDictionary, isLocale } from "@/lib/i18n";
+import type { Locale } from "@/lib/i18n";
 import { prisma } from "@/lib/prisma";
 import { cn } from "@/lib/utils";
 import { CheckoutButton, CustomerPortalButton } from "./billing-actions";
@@ -20,7 +23,16 @@ export const metadata: Metadata = {
   },
 };
 
+async function getRequestLocale(): Promise<Locale> {
+  const headersList = await headers();
+  const requestedLocale = headersList.get("x-violetbeam-locale") || undefined;
+  return isLocale(requestedLocale) ? requestedLocale : DEFAULT_LOCALE;
+}
+
 export default async function BillingPage() {
+  const locale = await getRequestLocale();
+  const dictionary = getDictionary(locale);
+  const billingCopy = dictionary.billing;
   const session = await getServerSession(authOptions);
   const userId = Number(session?.user?.id);
   const user = Number.isFinite(userId)
@@ -56,13 +68,13 @@ export default async function BillingPage() {
           <div>
             <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-[#8d5f9e]/10 px-4 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.4em] text-[#8d5f9e]">
               <Sparkles size={13} />
-              VioletBeam billing
+              {billingCopy.label}
             </div>
             <h1 className="font-serif text-7xl italic leading-[0.85] tracking-tight text-[#1C1C1C] md:text-9xl">
-              Credits
+              {billingCopy.title}
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-8 text-stone-500">
-              Virtual try-on generation is protected by credits so VioletBeam can stay stable, predictable, and sustainable.
+              {billingCopy.intro}
             </p>
           </div>
 
@@ -70,19 +82,19 @@ export default async function BillingPage() {
             {session?.user ? (
               <div className="flex flex-col gap-5">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-stone-400">Available credits</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-stone-400">{billingCopy.availableCredits}</p>
                   <p className="mt-2 font-serif text-6xl italic leading-none text-[#8d5f9e]">{user?.creditsBalance ?? 0}</p>
                 </div>
                 <div className="rounded-2xl bg-[#f7f1fb] p-4">
-                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#8d5f9e]">Current plan</p>
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#8d5f9e]">{billingCopy.currentPlan}</p>
                   <p className="mt-2 text-sm font-semibold text-[#1C1C1C]">
                     {user?.billingSubscription
                       ? `${user.billingSubscription.plan} · ${user.billingSubscription.status}`
-                      : "No active subscription"}
+                      : billingCopy.noSubscription}
                   </p>
                   {user?.billingSubscription?.currentPeriodEnd ? (
                     <p className="mt-1 text-xs text-stone-500">
-                      Renews on {user.billingSubscription.currentPeriodEnd.toLocaleDateString("fr-FR")}
+                      {billingCopy.renewsOn} {user.billingSubscription.currentPeriodEnd.toLocaleDateString(locale === "fr" ? "fr-FR" : "en-US")}
                     </p>
                   ) : null}
                 </div>
@@ -90,9 +102,9 @@ export default async function BillingPage() {
               </div>
             ) : (
               <div>
-                <p className="text-sm leading-7 text-stone-500">Connectez-vous pour choisir un abonnement et generer des looks.</p>
+                <p className="text-sm leading-7 text-stone-500">{billingCopy.signInPrompt}</p>
                 <Button asChild className="mt-5 h-11 rounded-full bg-[#1C1C1C] px-6 text-[10px] font-black uppercase tracking-[0.18em] text-white hover:bg-[#8d5f9e]">
-                  <Link href="/sign-in">Sign in</Link>
+                  <Link href={addLocaleToPathname("/sign-in", locale)}>{dictionary.nav.signIn}</Link>
                 </Button>
               </div>
             )}
@@ -111,40 +123,40 @@ export default async function BillingPage() {
               {plan.highlighted ? (
                 <span className="mb-5 inline-flex w-fit items-center gap-2 rounded-full bg-[#8d5f9e]/10 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-[#8d5f9e]">
                   <Zap size={12} />
-                  Recommended
+                  {billingCopy.recommended}
                 </span>
               ) : null}
 
               <h2 className="font-serif text-5xl italic leading-none text-[#1C1C1C]">{plan.name}</h2>
               <p className="mt-4 min-h-14 text-sm leading-7 text-stone-500">{plan.description}</p>
               <div className="mt-6 border-y border-stone-200/70 py-6">
-                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Monthly price</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">{billingCopy.monthlyPrice}</p>
                 <p className="mt-2 text-4xl font-black text-[#1C1C1C]">
                   {formatPlanPrice(plan)}
-                  <span className="text-sm font-semibold text-stone-400"> / month</span>
+                  <span className="text-sm font-semibold text-stone-400"> {billingCopy.perMonth}</span>
                 </p>
               </div>
               <ul className="mt-6 space-y-3 text-sm text-stone-600">
                 <li className="flex items-center gap-3">
                   <Check size={15} className="text-[#8d5f9e]" />
-                  {plan.monthlyCredits} virtual try-on generations
+                  {plan.monthlyCredits} {billingCopy.generations}
                 </li>
                 <li className="flex items-center gap-3">
                   <Check size={15} className="text-[#8d5f9e]" />
-                  Credits renew after each paid invoice
+                  {billingCopy.creditsRenew}
                 </li>
                 <li className="flex items-center gap-3">
                   <Check size={15} className="text-[#8d5f9e]" />
-                  Failed generations are refunded
+                  {billingCopy.failedRefunded}
                 </li>
               </ul>
 
               <div className="mt-auto pt-7">
                 {session?.user ? (
-                  <CheckoutButton planId={plan.id}>Choose {plan.name}</CheckoutButton>
+                  <CheckoutButton planId={plan.id}>{billingCopy.choose} {plan.name}</CheckoutButton>
                 ) : (
                   <Button asChild className="h-12 w-full rounded-full bg-[#1C1C1C] text-[10px] font-black uppercase tracking-[0.18em] text-white hover:bg-[#8d5f9e]">
-                    <Link href="/sign-in">Sign in first</Link>
+                    <Link href={addLocaleToPathname("/sign-in", locale)}>{billingCopy.signInFirst}</Link>
                   </Button>
                 )}
               </div>

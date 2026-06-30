@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 
 import AccountProfileForm from "@/app/account/account-profile-form";
 import { authOptions } from "@/lib/auth";
+import { addLocaleToPathname, DEFAULT_LOCALE, isLocale } from "@/lib/i18n";
+import type { Locale } from "@/lib/i18n";
 import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = {
@@ -25,12 +28,19 @@ function normalizeShopDomain(value?: string) {
     .replace(/\/.*$/, "");
 }
 
+async function getRequestLocale(): Promise<Locale> {
+  const headersList = await headers();
+  const requestedLocale = headersList.get("x-violetbeam-locale") || undefined;
+  return isLocale(requestedLocale) ? requestedLocale : DEFAULT_LOCALE;
+}
+
 export default async function AccountPage({ searchParams }: AccountPageProps) {
+  const locale = await getRequestLocale();
   const session = await getServerSession(authOptions);
   const userId = Number(session?.user?.id);
 
   if (!session?.user || !Number.isFinite(userId)) {
-    redirect("/sign-in?callbackUrl=/account");
+    redirect(`${addLocaleToPathname("/sign-in", locale)}?callbackUrl=${encodeURIComponent(addLocaleToPathname("/account", locale))}`);
   }
 
   const params = (await searchParams) || {};
@@ -61,7 +71,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
   });
 
   if (!user) {
-    redirect("/sign-in?callbackUrl=/account");
+    redirect(`${addLocaleToPathname("/sign-in", locale)}?callbackUrl=${encodeURIComponent(addLocaleToPathname("/account", locale))}`);
   }
 
   return (

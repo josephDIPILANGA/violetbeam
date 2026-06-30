@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { ArrowUpRight, Building2, Loader2, Sparkles, Store, UserRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { addLocaleToPathname, getDictionary, getLocaleFromPathname } from "@/lib/i18n";
 import { getZodFieldErrors, signUpSchema } from "@/lib/validations/auth";
 
 type SignUpField =
@@ -18,6 +20,10 @@ type SignUpField =
   | "shopDomain";
 
 export default function SignUpPage() {
+  const pathname = usePathname();
+  const locale = getLocaleFromPathname(pathname);
+  const dictionary = getDictionary(locale);
+  const authCopy = dictionary.auth;
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -39,14 +45,16 @@ export default function SignUpPage() {
     const shop = params.get("shop") || "";
     const isShopifyMerchant = params.get("merchant") === "shopify" || Boolean(shop);
 
-    if (isShopifyMerchant) {
-      setWantsToPostArticles(true);
-    }
+    window.queueMicrotask(() => {
+      if (isShopifyMerchant) {
+        setWantsToPostArticles(true);
+      }
 
-    if (shop) {
-      setShopDomain(shop);
-      setShopName((current) => current || shop.replace(".myshopify.com", ""));
-    }
+      if (shop) {
+        setShopDomain(shop);
+        setShopName((current) => current || shop.replace(".myshopify.com", ""));
+      }
+    });
   }, []);
 
   const validateField = (
@@ -77,8 +85,8 @@ export default function SignUpPage() {
     if (wantsToPostArticles && (!shopName.trim() || !shopDomain.trim())) {
       setFieldErrors((current) => ({
         ...current,
-        shopName: !shopName.trim() ? "Le nom de la boutique est obligatoire." : current.shopName,
-        shopDomain: !shopDomain.trim() ? "L'URL Shopify est obligatoire." : current.shopDomain,
+        shopName: !shopName.trim() ? authCopy.shopNameRequired : current.shopName,
+        shopDomain: !shopDomain.trim() ? authCopy.shopDomainRequired : current.shopDomain,
       }));
       return;
     }
@@ -113,12 +121,12 @@ export default function SignUpPage() {
 
     if (!response.ok) {
       setIsSubmitting(false);
-      setError(data.error || "Impossible de créer le compte.");
+      setError(data.error || authCopy.accountCreateError);
       return;
     }
 
     setIsSubmitting(false);
-    setSuccessMessage(data.message || "Compte cree. Verifiez votre email pour activer votre compte.");
+    setSuccessMessage(data.message || authCopy.accountCreated);
     setName("");
     setUsername("");
     setEmail("");
@@ -139,14 +147,12 @@ export default function SignUpPage() {
         <div>
           <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-[#8d5f9e]/10 px-4 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.4em] text-[#8d5f9e]">
             <Sparkles size={13} />
-            Join VioletBeam
+            {authCopy.joinLabel}
           </div>
           <h1 className="font-serif text-7xl italic leading-[0.85] tracking-tight text-[#1C1C1C] md:text-9xl">
-            Sign up
+            {authCopy.signUpTitle}
           </h1>
-          <p className="mt-6 max-w-xl text-base leading-8 text-stone-500">
-            Créez votre compte pour sauvegarder vos compositions, suivre vos looks et préparer vos futurs essayages IA.
-          </p>
+          <p className="mt-6 max-w-xl text-base leading-8 text-stone-500">{authCopy.signUpIntro}</p>
           <div className="mt-8 max-w-md overflow-hidden rounded-[34px] border border-white/80 bg-white/55 p-3 shadow-2xl shadow-purple-900/5 backdrop-blur-2xl">
             <div className="relative aspect-[4/3] overflow-hidden rounded-[26px] bg-[#f7f1fb]">
               <img
@@ -165,7 +171,7 @@ export default function SignUpPage() {
           </div>
           <div className="space-y-5">
             <label className="block">
-              <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Name</span>
+              <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">{authCopy.name}</span>
               <Input
                 value={name}
                 onChange={(event) => {
@@ -182,7 +188,7 @@ export default function SignUpPage() {
               {fieldErrors.name && <span className="mt-2 block text-xs font-semibold text-red-500">{fieldErrors.name}</span>}
             </label>
             <label className="block">
-              <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Username</span>
+              <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">{authCopy.username}</span>
               <Input
                 value={username}
                 onChange={(event) => {
@@ -200,7 +206,7 @@ export default function SignUpPage() {
               {fieldErrors.username && <span className="mt-2 block text-xs font-semibold text-red-500">{fieldErrors.username}</span>}
             </label>
             <label className="block">
-              <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Email</span>
+              <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">{authCopy.email}</span>
               <Input
                 type="email"
                 value={email}
@@ -216,7 +222,7 @@ export default function SignUpPage() {
               {fieldErrors.email && <span className="mt-2 block text-xs font-semibold text-red-500">{fieldErrors.email}</span>}
             </label>
             <label className="block">
-              <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Password</span>
+              <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">{authCopy.password}</span>
               <Input
                 type="password"
                 value={password}
@@ -237,7 +243,7 @@ export default function SignUpPage() {
               {fieldErrors.password && <span className="mt-2 block text-xs font-semibold text-red-500">{fieldErrors.password}</span>}
             </label>
             <label className="block">
-              <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Confirm password</span>
+              <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">{authCopy.confirmPassword}</span>
               <Input
                 type="password"
                 value={confirmPassword}
@@ -271,8 +277,8 @@ export default function SignUpPage() {
                   <Store size={18} />
                 </span>
                 <span>
-                  <span className="block text-[11px] font-black uppercase tracking-[0.2em]">Post articles on VioletBeam</span>
-                  <span className="mt-1 block text-xs">For Shopify merchants who want their products in the marketplace.</span>
+                  <span className="block text-[11px] font-black uppercase tracking-[0.2em]">{authCopy.postArticles}</span>
+                  <span className="mt-1 block text-xs">{authCopy.postArticlesHint}</span>
                 </span>
               </span>
               <span className={`h-5 w-5 rounded-full border ${wantsToPostArticles ? "border-[#8d5f9e] bg-[#8d5f9e]" : "border-stone-300"}`} />
@@ -282,35 +288,35 @@ export default function SignUpPage() {
               <div className="rounded-[28px] border border-[#8d5f9e]/20 bg-white/70 p-5 shadow-inner shadow-purple-900/5">
                 <div className="mb-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.22em] text-[#8d5f9e]">
                   <Building2 size={14} />
-                  Merchant details
+                  {authCopy.merchantDetails}
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <label className="block">
-                    <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Shop name</span>
+                    <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">{authCopy.shopName}</span>
                     <Input value={shopName} onChange={(event) => setShopName(event.target.value)} className="h-12 rounded-xl border-stone-200 bg-white" />
                     {fieldErrors.shopName && <span className="mt-2 block text-xs font-semibold text-red-500">{fieldErrors.shopName}</span>}
                   </label>
                   <label className="block">
-                    <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Shopify URL</span>
+                    <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">{authCopy.shopifyUrl}</span>
                     <Input value={shopDomain} onChange={(event) => setShopDomain(event.target.value)} className="h-12 rounded-xl border-stone-200 bg-white" placeholder="your-store.myshopify.com" />
                     {fieldErrors.shopDomain && <span className="mt-2 block text-xs font-semibold text-red-500">{fieldErrors.shopDomain}</span>}
                   </label>
                   <label className="block">
-                    <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Sector</span>
+                    <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">{authCopy.sector}</span>
                     <Input value={sector} onChange={(event) => setSector(event.target.value)} className="h-12 rounded-xl border-stone-200 bg-white" />
                   </label>
                   <label className="block">
-                    <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Country</span>
+                    <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">{authCopy.country}</span>
                     <Input value={country} onChange={(event) => setCountry(event.target.value)} className="h-12 rounded-xl border-stone-200 bg-white" />
                   </label>
                   <label className="block md:col-span-2">
-                    <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Shop description</span>
+                    <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">{authCopy.shopDescription}</span>
                     <textarea
                       value={shopDescription}
                       onChange={(event) => setShopDescription(event.target.value)}
                       rows={4}
                       className="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm outline-none focus:border-[#8d5f9e]"
-                      placeholder="Tell us what you sell and who your products are for."
+                      placeholder={authCopy.shopDescriptionPlaceholder}
                     />
                   </label>
                 </div>
@@ -327,13 +333,13 @@ export default function SignUpPage() {
 
           <Button disabled={isSubmitting} className="mt-8 h-12 w-full rounded-full bg-[#1C1C1C] text-[10px] font-black uppercase tracking-[0.24em] text-white hover:bg-[#8d5f9e]">
             {isSubmitting ? <Loader2 className="animate-spin" size={15} /> : <ArrowUpRight size={15} />}
-            Create account
+            {authCopy.createAccount}
           </Button>
 
           <p className="mt-6 text-center text-sm text-stone-500">
-            Already have an account?{" "}
-            <Link href="/sign-in" className="font-bold text-[#8d5f9e] hover:underline">
-              Sign in
+            {authCopy.alreadyAccount}{" "}
+            <Link href={addLocaleToPathname("/sign-in", locale)} className="font-bold text-[#8d5f9e] hover:underline">
+              {authCopy.signInLink}
             </Link>
           </p>
         </form>

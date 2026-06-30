@@ -1,10 +1,12 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { CheckCircle2, Clock3, ImagePlus, Loader2, Save, ShieldAlert, Store, UserRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { getDictionary, getLocaleFromPathname } from "@/lib/i18n";
 
 type AccountProfileFormProps = {
   initialUser: {
@@ -30,15 +32,17 @@ function getAccountStatus({
   emailVerified,
   merchantProfile,
   wantsMerchantProfile,
+  copy,
 }: {
   emailVerified: boolean;
   merchantProfile: AccountProfileFormProps["initialUser"]["merchantProfile"];
   wantsMerchantProfile: boolean;
+  copy: ReturnType<typeof getDictionary>["account"];
 }) {
   if (!wantsMerchantProfile) {
     return {
-      label: "Customer",
-      description: "Shopping and try-on access only. Marketplace publishing is disabled.",
+      label: copy.customer,
+      description: copy.customerDescription,
       tone: "neutral",
       icon: UserRound,
     };
@@ -46,8 +50,8 @@ function getAccountStatus({
 
   if (!merchantProfile) {
     return {
-      label: "Merchant paused",
-      description: "Complete and save your merchant details before publishing Shopify products.",
+      label: copy.merchantPaused,
+      description: copy.merchantMissingDescription,
       tone: "paused",
       icon: ShieldAlert,
     };
@@ -55,8 +59,8 @@ function getAccountStatus({
 
   if (!emailVerified) {
     return {
-      label: "Email not verified",
-      description: "Verify your VioletBeam email before publishing Shopify products.",
+      label: copy.emailNotVerified,
+      description: copy.emailNotVerifiedDescription,
       tone: "warning",
       icon: Clock3,
     };
@@ -64,22 +68,25 @@ function getAccountStatus({
 
   if (!merchantProfile.wantsMarketplace || !merchantProfile.approvedForPosting) {
     return {
-      label: "Merchant paused",
-      description: "Your merchant profile exists, but marketplace publishing is currently disabled.",
+      label: copy.merchantPaused,
+      description: copy.merchantPausedDescription,
       tone: "paused",
       icon: ShieldAlert,
     };
   }
 
   return {
-    label: "Merchant active",
-    description: "This account can publish Shopify products to VioletBeam.",
+    label: copy.merchantActive,
+    description: copy.merchantActiveDescription,
     tone: "active",
     icon: CheckCircle2,
   };
 }
 
 export default function AccountProfileForm({ initialUser, defaultShopDomain = "" }: AccountProfileFormProps) {
+  const pathname = usePathname();
+  const dictionary = getDictionary(getLocaleFromPathname(pathname));
+  const accountCopy = dictionary.account;
   const [name, setName] = useState(initialUser.name);
   const [username, setUsername] = useState(initialUser.username);
   const [image, setImage] = useState(initialUser.image);
@@ -101,6 +108,7 @@ export default function AccountProfileForm({ initialUser, defaultShopDomain = ""
     emailVerified: initialUser.emailVerified,
     merchantProfile,
     wantsMerchantProfile,
+    copy: accountCopy,
   });
   const StatusIcon = accountStatus.icon;
   const statusToneClass =
@@ -144,11 +152,11 @@ export default function AccountProfileForm({ initialUser, defaultShopDomain = ""
     setIsSubmitting(false);
 
     if (!response.ok) {
-      setError(data?.error || "Impossible de mettre a jour le profil.");
+      setError(data?.error || accountCopy.updateError);
       return;
     }
 
-    setSuccess(data?.message || "Profil mis a jour.");
+    setSuccess(data?.message || accountCopy.updated);
     setMerchantProfile(data?.user?.merchantProfile || null);
   };
 
@@ -159,11 +167,11 @@ export default function AccountProfileForm({ initialUser, defaultShopDomain = ""
           <div className="flex size-28 items-center justify-center overflow-hidden rounded-[28px] bg-[#f7f1fb] text-[#8d5f9e] ring-1 ring-white">
             {image ? <img src={image} alt={name} className="h-full w-full object-cover" /> : <UserRound size={42} />}
           </div>
-          <h2 className="mt-5 font-serif text-4xl italic tracking-tight">{name || "Your profile"}</h2>
+          <h2 className="mt-5 font-serif text-4xl italic tracking-tight">{name || accountCopy.yourProfile}</h2>
           <p className="mt-2 text-sm text-stone-500">{initialUser.email}</p>
           <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#8d5f9e]/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#8d5f9e]">
             {wantsMerchantProfile ? <Store size={13} /> : <UserRound size={13} />}
-            {wantsMerchantProfile ? "Merchant account" : "Customer account"}
+            {wantsMerchantProfile ? accountCopy.merchantAccount : accountCopy.customerAccount}
           </div>
           <div className={`mt-5 w-full rounded-3xl border px-4 py-4 text-left ${statusToneClass}`}>
             <div className="flex items-start gap-3">
@@ -182,28 +190,28 @@ export default function AccountProfileForm({ initialUser, defaultShopDomain = ""
       <section className="rounded-[34px] border border-white/80 bg-gradient-to-br from-[#fbf7ff]/90 via-white/85 to-white/95 p-6 shadow-2xl shadow-purple-900/5 backdrop-blur-2xl">
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.26em] text-[#8d5f9e]">Account settings</p>
-            <h1 className="mt-2 font-serif text-5xl italic tracking-tight">Profile</h1>
+            <p className="text-[10px] font-black uppercase tracking-[0.26em] text-[#8d5f9e]">{accountCopy.settings}</p>
+            <h1 className="mt-2 font-serif text-5xl italic tracking-tight">{accountCopy.profile}</h1>
           </div>
           <Button disabled={isSubmitting} className="rounded-full bg-[#1C1C1C] text-[10px] font-black uppercase tracking-[0.2em] text-white hover:bg-[#8d5f9e]">
             {isSubmitting ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-            Save
+            {accountCopy.save}
           </Button>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="block">
-            <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Name</span>
+            <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">{accountCopy.name}</span>
             <Input value={name} onChange={(event) => setName(event.target.value)} className="h-12 rounded-xl border-stone-200 bg-white" />
           </label>
           <label className="block">
-            <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Username</span>
+            <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">{accountCopy.username}</span>
             <Input value={username} onChange={(event) => setUsername(event.target.value)} className="h-12 rounded-xl border-stone-200 bg-white" />
           </label>
           <label className="block md:col-span-2">
             <span className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">
               <ImagePlus size={13} />
-              Profile photo URL
+              {accountCopy.profilePhotoUrl}
             </span>
             <Input
               value={image}
@@ -228,8 +236,8 @@ export default function AccountProfileForm({ initialUser, defaultShopDomain = ""
               <Store size={18} />
             </span>
             <span>
-              <span className="block text-[11px] font-black uppercase tracking-[0.2em]">Post articles on VioletBeam</span>
-              <span className="mt-1 block text-xs">Activate merchant access for Shopify product publishing.</span>
+              <span className="block text-[11px] font-black uppercase tracking-[0.2em]">{accountCopy.postArticles}</span>
+              <span className="mt-1 block text-xs">{accountCopy.postArticlesHint}</span>
             </span>
           </span>
           <span className={`h-5 w-5 rounded-full border ${wantsMerchantProfile ? "border-[#8d5f9e] bg-[#8d5f9e]" : "border-stone-300"}`} />
@@ -239,27 +247,27 @@ export default function AccountProfileForm({ initialUser, defaultShopDomain = ""
           <div className="mt-5 rounded-[28px] border border-[#8d5f9e]/20 bg-white/70 p-5 shadow-inner shadow-purple-900/5">
             <div className="mb-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.22em] text-[#8d5f9e]">
               <Store size={14} />
-              Merchant details
+              {accountCopy.merchantDetails}
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <label className="block">
-                <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Shop name</span>
+                <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">{accountCopy.shopName}</span>
                 <Input value={shopName} onChange={(event) => setShopName(event.target.value)} className="h-12 rounded-xl border-stone-200 bg-white" />
               </label>
               <label className="block">
-                <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Shopify URL</span>
+                <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">{accountCopy.shopifyUrl}</span>
                 <Input value={shopDomain} onChange={(event) => setShopDomain(event.target.value)} className="h-12 rounded-xl border-stone-200 bg-white" placeholder="your-store.myshopify.com" />
               </label>
               <label className="block">
-                <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Sector</span>
+                <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">{accountCopy.sector}</span>
                 <Input value={sector} onChange={(event) => setSector(event.target.value)} className="h-12 rounded-xl border-stone-200 bg-white" />
               </label>
               <label className="block">
-                <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Country</span>
+                <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">{accountCopy.country}</span>
                 <Input value={country} onChange={(event) => setCountry(event.target.value)} className="h-12 rounded-xl border-stone-200 bg-white" />
               </label>
               <label className="block md:col-span-2">
-                <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Shop description</span>
+                <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">{accountCopy.shopDescription}</span>
                 <textarea
                   value={shopDescription}
                   onChange={(event) => setShopDescription(event.target.value)}

@@ -1,10 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { BadgeCheck, CalendarClock, CalendarDays, ExternalLink, ImageIcon, Shirt, Sparkles, Store, Tag, X, XCircle } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { getDictionary, getLocaleFromPathname } from "@/lib/i18n";
 
 export type InfluencerPostArticleView = {
   id: number;
@@ -48,13 +50,21 @@ const postStatusStyles: Record<string, string> = {
   FAILED: "bg-red-50 text-red-500 ring-red-100",
 };
 
-function formatPrice(price: number | string | null) {
+function formatPrice(price: number | string | null, fallback: string) {
   const value = Number(price);
-  if (!Number.isFinite(value)) return "Prix a venir";
+  if (!Number.isFinite(value)) return fallback;
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "USD" }).format(value);
 }
 
-function ArticleRow({ article, compact = false }: { article: InfluencerPostArticleView; compact?: boolean }) {
+function ArticleRow({
+  article,
+  compact = false,
+  dictionary,
+}: {
+  article: InfluencerPostArticleView;
+  compact?: boolean;
+  dictionary: ReturnType<typeof getDictionary>;
+}) {
   return (
     <div
       className={cn(
@@ -75,7 +85,7 @@ function ArticleRow({ article, compact = false }: { article: InfluencerPostArtic
         <div className="mb-1.5 flex flex-wrap gap-2">
           <span className="inline-flex items-center gap-1 rounded-full bg-stone-100 px-2.5 py-0.5 text-[7px] font-bold uppercase tracking-[0.16em] text-stone-500">
             <Tag size={10} />
-            {formatPrice(article.price)}
+            {formatPrice(article.price, dictionary.catalog.storeComingSoon)}
           </span>
         </div>
         <h3 className={cn("truncate font-serif italic leading-none text-[#1C1C1C]", compact ? "text-xl" : "text-2xl")}>{article.title}</h3>
@@ -87,13 +97,13 @@ function ArticleRow({ article, compact = false }: { article: InfluencerPostArtic
             rel="noreferrer"
             className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[#1C1C1C] px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white transition-colors hover:bg-[#8d5f9e]"
           >
-            Boutique
+            {dictionary.common.shop}
             <ExternalLink size={12} />
           </a>
         ) : (
           <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-stone-100 px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-stone-400">
             <Store size={12} />
-            Lien a venir
+            {dictionary.catalog.storeComingSoon}
           </span>
         )}
       </div>
@@ -103,6 +113,8 @@ function ArticleRow({ article, compact = false }: { article: InfluencerPostArtic
 
 export default function InfluencerPostsClient({ posts, isReviewMode, isAiDisclosed }: InfluencerPostsClientProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const dictionary = getDictionary(getLocaleFromPathname(pathname));
   const [activePost, setActivePost] = useState<InfluencerPostView | null>(null);
   const [approvingPostId, setApprovingPostId] = useState<number | null>(null);
   const [schedulingPostId, setSchedulingPostId] = useState<number | null>(null);
@@ -274,7 +286,7 @@ export default function InfluencerPostsClient({ posts, isReviewMode, isAiDisclos
                     <span>{new Date(post.publishedAt).toLocaleString("fr-FR")}</span>
                   </div>
                 )}
-                <p className="line-clamp-3 min-h-[72px] text-sm leading-6 text-stone-600">{post.caption || "Caption a generer."}</p>
+                <p className="line-clamp-3 min-h-[72px] text-sm leading-6 text-stone-600">{post.caption || dictionary.product.detailsComingSoon}</p>
                 {post.errorMessage && (
                   <p className="mt-3 rounded-[18px] bg-amber-50 px-4 py-3 text-xs font-semibold leading-5 text-amber-700 ring-1 ring-amber-100">
                     {post.errorMessage}
@@ -298,7 +310,7 @@ export default function InfluencerPostsClient({ posts, isReviewMode, isAiDisclos
 
                 <div className="mt-5 space-y-2.5 border-t border-stone-100 pt-4">
                   {visibleArticles.map((article) => (
-                    <ArticleRow key={`${post.id}-${article.id}`} article={article} compact />
+                    <ArticleRow key={`${post.id}-${article.id}`} article={article} compact dictionary={dictionary} />
                   ))}
                 </div>
 
@@ -308,7 +320,7 @@ export default function InfluencerPostsClient({ posts, isReviewMode, isAiDisclos
                     onClick={() => setActivePost(post)}
                     className="inline-flex h-9 items-center gap-2 rounded-full bg-white px-4 text-[8px] font-black uppercase tracking-[0.18em] text-stone-500 ring-1 ring-stone-100 transition-colors hover:text-[#8d5f9e]"
                   >
-                    View details
+                    {dictionary.common.seeArticle}
                     {hiddenCount > 0 ? `+${hiddenCount}` : ""}
                   </button>
 
@@ -436,12 +448,12 @@ export default function InfluencerPostsClient({ posts, isReviewMode, isAiDisclos
 
       {activePost && (
         <div className="fixed inset-0 z-[130] flex items-center justify-center bg-[#1C1C1C]/45 p-4 backdrop-blur-2xl">
-          <button className="absolute inset-0 cursor-default" onClick={() => setActivePost(null)} aria-label="Fermer le detail" />
+          <button className="absolute inset-0 cursor-default" onClick={() => setActivePost(null)} aria-label={dictionary.cabine.close} />
           <section className="relative grid max-h-[92vh] w-full max-w-6xl overflow-hidden rounded-[40px] border border-white/80 bg-[#FDFBFF]/95 shadow-2xl shadow-purple-950/20 md:grid-cols-[0.95fr_1.05fr]">
             <button
               onClick={() => setActivePost(null)}
               className="absolute right-5 top-5 z-20 flex size-11 items-center justify-center rounded-full bg-white/85 text-[#1C1C1C] shadow-lg backdrop-blur-xl transition-colors hover:bg-white"
-              aria-label="Fermer"
+              aria-label={dictionary.cabine.close}
             >
               <X size={18} />
             </button>
@@ -452,7 +464,7 @@ export default function InfluencerPostsClient({ posts, isReviewMode, isAiDisclos
                 <span className={cn("inline-flex rounded-full px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.2em] ring-1", postStatusStyles[activePost.status])}>
                   {activePost.status}
                 </span>
-                <p className="mt-5 max-w-2xl text-base leading-7 text-white">{activePost.caption || "Caption a generer."}</p>
+                <p className="mt-5 max-w-2xl text-base leading-7 text-white">{activePost.caption || dictionary.product.detailsComingSoon}</p>
                 {activePost.errorMessage && (
                   <p className="mt-4 max-w-2xl rounded-2xl bg-amber-50/95 px-4 py-3 text-sm font-semibold leading-6 text-amber-800">
                     {activePost.errorMessage}
@@ -478,11 +490,11 @@ export default function InfluencerPostsClient({ posts, isReviewMode, isAiDisclos
                   <span>Published {new Date(activePost.publishedAt).toLocaleString("fr-FR")}</span>
                 </div>
               )}
-                <h2 className="font-serif text-4xl italic leading-none text-[#1C1C1C]">Articles du post</h2>
+                <h2 className="font-serif text-4xl italic leading-none text-[#1C1C1C]">{dictionary.lookbook.lookItems}</h2>
               </header>
               <div className="space-y-4">
                 {activePost.articles.map((article) => (
-                  <ArticleRow key={`modal-${activePost.id}-${article.id}`} article={article} />
+                  <ArticleRow key={`modal-${activePost.id}-${article.id}`} article={article} dictionary={dictionary} />
                 ))}
               </div>
               {activePost.generatedImageUrl && (
@@ -492,7 +504,7 @@ export default function InfluencerPostsClient({ posts, isReviewMode, isAiDisclos
                   rel="noreferrer"
                   className="mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-[#1C1C1C] px-5 text-[9px] font-black uppercase tracking-[0.2em] text-white transition-colors hover:bg-[#8d5f9e]"
                 >
-                  Open image
+                  {dictionary.lookbook.openImage}
                   <ExternalLink size={12} />
                 </a>
               )}

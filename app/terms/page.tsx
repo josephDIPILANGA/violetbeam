@@ -1,8 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { ArrowLeft, BadgeCheck, CreditCard, FileText, Mail, Scale, ShieldAlert, Sparkles, WandSparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { addLocaleToPathname, DEFAULT_LOCALE, getDictionary, isLocale } from "@/lib/i18n";
+import type { Locale } from "@/lib/i18n";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
@@ -17,74 +22,19 @@ export const metadata: Metadata = {
   },
 };
 
-const sections = [
-  {
-    title: "Using VioletBeam",
-    icon: WandSparkles,
-    body: [
-      "VioletBeam provides AI fashion try-on, catalog discovery, lookbook, virtual agents, and related creative tools.",
-      "You must use the service lawfully and only submit images, prompts, and content that you have the right to use.",
-      "You are responsible for keeping your account credentials secure and for activity that occurs through your account.",
-    ],
-  },
-  {
-    title: "Virtual try-on and AI outputs",
-    icon: Sparkles,
-    body: [
-      "AI-generated images are creative previews and may not perfectly represent garment fit, fabric, color, sizing, or real-world appearance.",
-      "Generated outputs should not be treated as professional fashion, medical, legal, or body measurement advice.",
-      "We may refuse or remove prompts, uploads, or generated content that appears abusive, illegal, non-consensual, deceptive, or harmful.",
-    ],
-  },
-  {
-    title: "Subscriptions and credits",
-    icon: CreditCard,
-    body: [
-      "Paid plans provide a monthly allowance of virtual try-on generation credits. A successful generation consumes credits according to the plan rules.",
-      "If a generation fails due to a service error, the reserved credit may be refunded automatically.",
-      "Payments are processed by Stripe. Subscription changes, renewals, failed payments, cancellations, and invoices are handled through Stripe and the VioletBeam billing page.",
-      "Unless otherwise stated, monthly credits renew after successful payment and may not roll over indefinitely.",
-    ],
-  },
-  {
-    title: "Catalog and shopping links",
-    icon: BadgeCheck,
-    body: [
-      "The catalog may include third-party products, brands, affiliate links, marketplace links, or imported product information.",
-      "Prices, availability, shipping, discounts, reviews, and product details may change on third-party websites.",
-      "Purchases are completed with the relevant merchant or platform. VioletBeam is not the seller of third-party products unless explicitly stated.",
-    ],
-  },
-  {
-    title: "Acceptable use",
-    icon: ShieldAlert,
-    body: [
-      "Do not upload images of other people without consent.",
-      "Do not use VioletBeam to create misleading impersonations, illegal content, harassment, adult sexual content involving non-consenting people, or content that violates platform rules.",
-      "Do not attempt to bypass credit limits, abuse subscriptions, scrape the service, reverse engineer private systems, or interfere with the platform.",
-    ],
-  },
-  {
-    title: "Service availability",
-    icon: FileText,
-    body: [
-      "VioletBeam may change, suspend, limit, or discontinue features as the product evolves.",
-      "AI providers, payment providers, catalog partners, hosting platforms, and social platforms may affect availability or performance.",
-      "We aim to provide a useful and reliable service, but we cannot guarantee uninterrupted or error-free operation.",
-    ],
-  },
-  {
-    title: "Liability",
-    icon: Scale,
-    body: [
-      "VioletBeam is provided on an as-is and as-available basis to the maximum extent permitted by law.",
-      "We are not responsible for third-party merchant decisions, product quality, shipping outcomes, social platform restrictions, or external payment provider issues.",
-      "Nothing in these terms limits rights that cannot be limited under applicable law.",
-    ],
-  },
-];
+const sectionIcons = [WandSparkles, Sparkles, CreditCard, BadgeCheck, ShieldAlert, FileText, Scale];
 
-export default function TermsPage() {
+async function getRequestLocale(): Promise<Locale> {
+  const headersList = await headers();
+  const requestedLocale = headersList.get("x-violetbeam-locale") || undefined;
+  return isLocale(requestedLocale) ? requestedLocale : DEFAULT_LOCALE;
+}
+
+export default async function TermsPage() {
+  const locale = await getRequestLocale();
+  const dictionary = getDictionary(locale);
+  const legalCopy = dictionary.legal;
+
   return (
     <main className="min-h-screen bg-[#FDFBFF] text-[#1C1C1C]">
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
@@ -95,9 +45,9 @@ export default function TermsPage() {
       <div className="relative mx-auto max-w-6xl px-6 py-12 lg:px-10">
         <div className="mb-8">
           <Button asChild variant="outline" className="h-11 rounded-full border-stone-200 bg-white/70 px-5 text-[10px] font-black uppercase tracking-[0.2em] text-stone-500 hover:text-[#8d5f9e]">
-            <Link href="/">
+            <Link href={addLocaleToPathname("/", locale)}>
               <ArrowLeft size={14} />
-              Home
+              {legalCopy.home}
             </Link>
           </Button>
         </div>
@@ -105,23 +55,22 @@ export default function TermsPage() {
         <header className="mb-12 overflow-hidden rounded-[40px] border border-white/75 bg-white/65 p-8 shadow-2xl shadow-purple-900/5 backdrop-blur-2xl md:p-12">
           <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-[#8d5f9e]/10 px-4 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.34em] text-[#8d5f9e]">
             <Scale size={13} />
-            Terms
+            {legalCopy.termsLabel}
           </div>
           <h1 className="font-serif text-6xl italic leading-[0.9] tracking-tight text-[#1C1C1C] md:text-8xl">
-            Terms of Service
+            {legalCopy.termsTitle}
           </h1>
           <p className="mt-6 max-w-3xl text-base leading-8 text-stone-500">
-            These terms explain the rules for using VioletBeam, including virtual try-on generation, subscriptions,
-            credits, AI outputs, catalog links, and acceptable use.
+            {legalCopy.termsIntro}
           </p>
           <p className="mt-5 text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">
-            Last updated: June 2, 2026
+            {legalCopy.lastUpdated}
           </p>
         </header>
 
         <section className="grid gap-5">
-          {sections.map((section) => {
-            const Icon = section.icon;
+          {legalCopy.termsSections.map((section, index) => {
+            const Icon = sectionIcons[index] || FileText;
 
             return (
               <article key={section.title} className="rounded-[30px] border border-white/75 bg-white/65 p-6 shadow-sm backdrop-blur-2xl md:p-8">
@@ -149,11 +98,11 @@ export default function TermsPage() {
             <div>
               <div className="mb-3 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.24em] text-[#C9A0CD]">
                 <Mail size={13} />
-                Questions
+                {legalCopy.questions}
               </div>
-              <h2 className="font-serif text-4xl italic leading-none">Need clarification?</h2>
+              <h2 className="font-serif text-4xl italic leading-none">{legalCopy.termsClarification}</h2>
               <p className="mt-4 max-w-2xl text-sm leading-7 text-white/65">
-                For questions about these terms, subscriptions, credits, or acceptable use, contact VioletBeam.
+                {legalCopy.termsContact}
               </p>
             </div>
             <Button asChild className="h-12 rounded-full bg-white px-6 text-[10px] font-black uppercase tracking-[0.18em] text-[#1C1C1C] hover:bg-[#C9A0CD] hover:text-white">

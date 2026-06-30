@@ -2,11 +2,11 @@
 
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import {
   Aperture,
   Camera,
   Check,
-  ChevronUp,
   Footprints,
   Glasses,
   HatGlasses,
@@ -28,6 +28,7 @@ import { toast, Toaster } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { getDictionary, getLocaleFromPathname } from "@/lib/i18n";
 import { MODULE_ICON_MAP, type CatalogModule, type ModuleIconName } from "@/lib/catalog";
 import { cn } from "@/lib/utils";
 
@@ -428,6 +429,9 @@ function normalizeHistory(items: HistoryItem[]) {
 }
 
 export default function CabinePage() {
+  const pathname = usePathname();
+  const dictionary = getDictionary(getLocaleFromPathname(pathname));
+  const cabineCopy = dictionary.cabine;
   const [profileImage, setProfileImage] = useState<string | null>(DATABASE_PROFILE_IMAGE);
   const [currentImage, setCurrentImage] = useState<string | null>(DATABASE_PROFILE_IMAGE);
   const [history, setHistory] = useState<HistoryItem[]>(() => normalizeHistory(INITIAL_HISTORY));
@@ -462,22 +466,24 @@ export default function CabinePage() {
     !hasValidatedCurrentComposition;
 
   useEffect(() => {
-    try {
-      const storedHistory = window.localStorage.getItem(CABINE_HISTORY_STORAGE_KEY);
-      if (!storedHistory) {
-        setIsHistoryReady(true);
-        return;
-      }
+    window.queueMicrotask(() => {
+      try {
+        const storedHistory = window.localStorage.getItem(CABINE_HISTORY_STORAGE_KEY);
+        if (!storedHistory) {
+          setIsHistoryReady(true);
+          return;
+        }
 
-      const parsedHistory = JSON.parse(storedHistory) as HistoryItem[];
-      if (Array.isArray(parsedHistory)) {
-        setHistory(normalizeHistory(parsedHistory));
+        const parsedHistory = JSON.parse(storedHistory) as HistoryItem[];
+        if (Array.isArray(parsedHistory)) {
+          setHistory(normalizeHistory(parsedHistory));
+        }
+      } catch {
+        setHistory(normalizeHistory(INITIAL_HISTORY));
+      } finally {
+        setIsHistoryReady(true);
       }
-    } catch {
-      setHistory(normalizeHistory(INITIAL_HISTORY));
-    } finally {
-      setIsHistoryReady(true);
-    }
+    });
   }, []);
 
   useEffect(() => {
@@ -486,9 +492,9 @@ export default function CabinePage() {
     try {
       window.localStorage.setItem(CABINE_HISTORY_STORAGE_KEY, JSON.stringify(history));
     } catch {
-      toast.error("L'historique local est plein. Supprimez quelques images avant de continuer.");
+      toast.error(cabineCopy.localHistoryFull);
     }
-  }, [history, isHistoryReady]);
+  }, [history, isHistoryReady, cabineCopy.localHistoryFull]);
 
   useEffect(() => {
     let isMounted = true;
@@ -531,27 +537,29 @@ export default function CabinePage() {
 
     if (!moduleId || !articleId) return;
 
-    const module = catalogArticleModules.find((entry) => entry.id === moduleId);
-    const option = module?.options.find((entry) => entry.id === articleId);
+    const selectedModule = catalogArticleModules.find((entry) => entry.id === moduleId);
+    const option = selectedModule?.options.find((entry) => entry.id === articleId);
 
-    if (!module || !option) return;
+    if (!selectedModule || !option) return;
 
     hasAppliedCatalogSelection.current = true;
-    setSelections((previous) => ({
-      ...previous,
-      [module.id]: {
-        ...option,
-        moduleId: module.id,
-        moduleLabel: module.label,
-      },
-    }));
-    setActiveSelectionModuleId(module.id);
-    setActiveHistoryId(null);
-    setLastGeneratedSignature(null);
-    setActiveModule(null);
-    setSearch("");
-    toast.success("Article ajoute a la cabine.");
-  }, [catalogArticleModules]);
+    window.queueMicrotask(() => {
+      setSelections((previous) => ({
+        ...previous,
+        [selectedModule.id]: {
+          ...option,
+          moduleId: selectedModule.id,
+          moduleLabel: selectedModule.label,
+        },
+      }));
+      setActiveSelectionModuleId(selectedModule.id);
+      setActiveHistoryId(null);
+      setLastGeneratedSignature(null);
+      setActiveModule(null);
+      setSearch("");
+      toast.success(cabineCopy.articleAdded);
+    });
+  }, [catalogArticleModules, cabineCopy.articleAdded]);
 
   const filteredOptions = useMemo(() => {
     if (!activeModule) return [];
@@ -595,7 +603,7 @@ export default function CabinePage() {
     setActiveModule(null);
     setSearch("");
     event.target.value = "";
-    toast.success("Nouvelle composition initialisee.");
+    toast.success(cabineCopy.newComposition);
   };
 
   const resetCabine = () => {
@@ -606,7 +614,7 @@ export default function CabinePage() {
     setActiveSelectionModuleId(null);
     setActiveModule(null);
     setSearch("");
-    toast.info("Cabine remise par defaut.");
+    toast.info(cabineCopy.resetDone);
   };
 
   const deleteHistoryItem = (id: number) => {
@@ -627,17 +635,17 @@ export default function CabinePage() {
 
   const handleValidateComposition = async () => {
     if (!currentImage || selectedItems.length === 0 || !activeHistoryId) {
-      toast.error("Aucune composition a valider.");
+      toast.error(cabineCopy.noCompositionToValidate);
       return;
     }
 
     if (currentCompositionSignature !== lastGeneratedSignature) {
-      toast.info("Generez d'abord une nouvelle image avec cette composition.");
+      toast.info(cabineCopy.generateFirst);
       return;
     }
 
     if (hasValidatedCurrentComposition) {
-      toast.info("Cette composition est deja validee.");
+      toast.info(cabineCopy.alreadyValidated);
       return;
     }
 
@@ -683,9 +691,9 @@ export default function CabinePage() {
         )
       );
 
-      toast.success(isUpdate ? "Composition mise a jour." : "Image et composition enregistrees.");
+      toast.success(isUpdate ? cabineCopy.compositionUpdated : cabineCopy.compositionSaved);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erreur pendant la validation.");
+      toast.error(error instanceof Error ? error.message : cabineCopy.validationError);
     } finally {
       setIsValidating(false);
     }
@@ -727,7 +735,7 @@ export default function CabinePage() {
     }
 
     if (!canGenerate) {
-      toast.info("Modifiez la composition avant de relancer un try-on.");
+      toast.info(cabineCopy.editBeforeRetry);
       return;
     }
 
@@ -784,9 +792,9 @@ export default function CabinePage() {
       setLastGeneratedSignature(currentCompositionSignature);
       setActiveHistoryId(nextHistoryItem.id);
       setHistory((items) => [nextHistoryItem, ...items].slice(0, 12));
-      toast.success(data.demo ? "Rendu demo ajoute a l'historique." : "Look genere.");
+      toast.success(data.demo ? cabineCopy.demoAdded : cabineCopy.lookGenerated);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erreur pendant la generation.");
+      toast.error(error instanceof Error ? error.message : cabineCopy.generationError);
     } finally {
       setIsGenerating(false);
     }
@@ -827,7 +835,7 @@ return (
         {/* Section Texte (Gauche) */}
         <div className="z-20 flex-1 py-6">
           <h1 className="font-bebas italic text-[clamp(3.5rem,8vw,9rem)] leading-[0.85] text-gray-900 select-none tracking-tighter drop-shadow-sm">
-            LA <br /> CABINE
+            {cabineCopy.titleLine1} <br /> {cabineCopy.titleLine2}
           </h1>
           
           <div className="mt-3 flex items-center gap-4">
@@ -847,7 +855,7 @@ return (
             <div className="relative h-[470px] w-[340px] transition-transform md:h-[610px] md:w-[445px]">
               <Image
                 src="/personnage/women-banner.png" 
-                alt="Mannequin La Cabine" 
+                alt={cabineCopy.titleLine2}
                 fill
                 priority
                 sizes="(min-width: 768px) 445px, 340px"
@@ -873,8 +881,8 @@ return (
                 <Clock size={15} />
               </span>
               <div>
-                <p className="text-[9px] font-black uppercase tracking-[0.28em] text-[#8d5f9e]">Archives</p>
-                <p className="mt-1 text-[10px] font-semibold text-stone-400">{history.length} looks</p>
+                <p className="text-[9px] font-black uppercase tracking-[0.28em] text-[#8d5f9e]">{cabineCopy.archives}</p>
+                <p className="mt-1 text-[10px] font-semibold text-stone-400">{history.length} {cabineCopy.looks}</p>
               </div>
             </div>
             {history.map((item) => (
@@ -893,7 +901,7 @@ return (
                 <button
                   onClick={() => deleteHistoryItem(item.id)}
                   className="absolute -right-2 -top-2 flex size-6 items-center justify-center rounded-full bg-[#1C1C1C] text-white opacity-0 shadow-xl transition-all hover:bg-[#8d5f9e] group-hover:opacity-100"
-                  aria-label="Supprimer l'image"
+                  aria-label={cabineCopy.deleteImage}
                 >
                   <Trash2 size={10} />
                 </button>
@@ -902,7 +910,7 @@ return (
             <button
               onClick={resetCabine}
               className="flex h-28 w-20 shrink-0 items-center justify-center rounded-2xl border border-dashed border-[#C9A0CD]/45 bg-white/45 text-[#8d5f9e] transition-all hover:-translate-y-0.5 hover:border-[#8d5f9e] hover:bg-white hover:shadow-xl hover:shadow-purple-900/10"
-              aria-label="Réinitialiser la cabine"
+              aria-label={cabineCopy.resetCabine}
             >
               <Plus size={20} strokeWidth={1.5} />
             </button>
@@ -925,11 +933,11 @@ return (
                   </span>
                 </div>
                 <div className="space-y-2">
-                  <p className="font-serif text-2xl italic text-stone-800">Commencer la Création</p>
-                  <p className="text-[10px] uppercase tracking-widest text-stone-400 font-medium">Importez une silhouette de référence</p>
+                  <p className="font-serif text-2xl italic text-stone-800">{cabineCopy.startCreation}</p>
+                  <p className="text-[10px] uppercase tracking-widest text-stone-400 font-medium">{cabineCopy.uploadReference}</p>
                 </div>
                 <span className="inline-flex items-center gap-3 bg-[#1C1C1C] px-8 py-4 text-[10px] font-bold uppercase tracking-widest text-white transition-transform hover:scale-105 active:scale-95">
-                  <Upload size={14} /> Explorer
+                  <Upload size={14} /> {cabineCopy.explore}
                 </span>
                 <input className="sr-only" type="file" accept="image/*" onChange={handleUpload} />
               </label>
@@ -962,7 +970,7 @@ return (
               <div className="absolute inset-0 flex items-center justify-center bg-white/20 backdrop-blur-md transition-all duration-500">
                 <div className="flex flex-col items-center gap-4">
                   <div className="h-12 w-12 border-t-2 border-l-2 border-[#1C1C1C] animate-spin rounded-full"></div>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.4em] text-[#1C1C1C] animate-pulse">Traitement IA...</span>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.4em] text-[#1C1C1C] animate-pulse">{cabineCopy.processing}</span>
                 </div>
               </div>
             )}
@@ -977,11 +985,11 @@ return (
                 className="h-10 w-full gap-2 rounded-full bg-gradient-to-r from-[#1C1C1C] to-[#4f365f] px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-white shadow-lg transition-all duration-300 hover:from-black hover:to-[#5f3d72] disabled:cursor-not-allowed disabled:opacity-45 sm:h-11 sm:gap-3 sm:px-5"
               >
                 {isGenerating ? <Loader2 className="animate-spin" size={15} /> : <Sparkles size={15} className="text-[#E7C9EC]" />}
-                <span className="hidden sm:inline">TRY ON</span>
+                <span className="hidden sm:inline">{dictionary.common.tryOn}</span>
               </Button>
               <label className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-white text-[10px] font-bold uppercase tracking-[0.18em] text-[#4f365f] shadow-sm ring-1 ring-[#C9A0CD]/25 transition-colors hover:bg-[#fbf7ff] sm:h-11 sm:gap-3">
                 <Upload size={13} />
-                <span className="hidden sm:inline">Upload</span>
+                <span className="hidden sm:inline">{cabineCopy.upload}</span>
                 <input className="sr-only" type="file" accept="image/*" onChange={handleUpload} />
               </label>
               <button
@@ -991,10 +999,10 @@ return (
                   "inline-flex h-10 w-full items-center justify-center gap-2 rounded-full bg-white text-[10px] font-bold uppercase tracking-[0.18em] text-[#4f365f] shadow-sm ring-1 ring-[#C9A0CD]/25 transition-colors hover:bg-[#fbf7ff] disabled:cursor-not-allowed disabled:opacity-45 sm:h-11 sm:gap-3",
                   hasValidatedCurrentComposition && "bg-gradient-to-r from-[#8d5f9e] to-[#C9A0CD] text-white ring-transparent hover:from-[#8d5f9e] hover:to-[#C9A0CD] disabled:opacity-100"
                 )}
-                title="Valider la composition"
+                title={cabineCopy.validateTitle}
               >
                 {isValidating ? <Loader2 className="animate-spin" size={13} /> : <Check size={13} />}
-                <span className="hidden sm:inline">Valider</span>
+                <span className="hidden sm:inline">{cabineCopy.validate}</span>
               </button>
             </div>
 
@@ -1002,7 +1010,7 @@ return (
 
             <div className="min-h-0 flex-1">
               <div className="mb-3 flex items-center justify-center sm:mb-4 sm:justify-between">
-                <span className="hidden text-[9px] font-bold uppercase tracking-[0.25em] text-[#8d5f9e]/70 sm:inline">Articles</span>
+                <span className="hidden text-[9px] font-bold uppercase tracking-[0.25em] text-[#8d5f9e]/70 sm:inline">{dictionary.catalog.articles}</span>
                 <span className="text-[9px] font-semibold uppercase tracking-[0.18em] text-stone-300">{selectedItems.length}</span>
               </div>
 
@@ -1032,7 +1040,7 @@ return (
                 </div>
               ) : (
                 <div className="flex h-24 items-center justify-center rounded-2xl border border-dashed border-[#C9A0CD]/35 bg-white/50 px-2 text-center sm:h-32 sm:rounded-3xl sm:px-6">
-                  <p className="text-[9px] font-semibold uppercase leading-relaxed tracking-[0.16em] text-stone-300 sm:text-[10px] sm:tracking-[0.2em]">Aucun article</p>
+                  <p className="text-[9px] font-semibold uppercase leading-relaxed tracking-[0.16em] text-stone-300 sm:text-[10px] sm:tracking-[0.2em]">{cabineCopy.noArticle}</p>
                 </div>
               )}
             </div>
@@ -1042,8 +1050,8 @@ return (
           <section className="col-span-2 flex h-[720px] w-full flex-col rounded-none border border-stone-200 bg-white p-8 lg:col-span-1 lg:w-[500px]">
             <div className="mb-8 flex items-center justify-between border-b border-stone-100 pb-6">
               <div>
-                <h2 className="font-serif text-3xl italic text-[#1C1C1C]">Catalogue</h2>
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-400 mt-1">Éléments de Composition</p>
+                <h2 className="font-serif text-3xl italic text-[#1C1C1C]">{dictionary.common.catalog}</h2>
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-400 mt-1">{cabineCopy.compositionElements}</p>
               </div>
               <div className="h-10 w-10 flex items-center justify-center rounded-full bg-stone-50 border border-stone-100">
                  <Glasses className="text-stone-400" size={18} strokeWidth={1.5} />
@@ -1077,7 +1085,7 @@ return (
                       "block text-[10px] font-bold uppercase tracking-widest",
                       selections[module.id] ? "text-stone-400" : "text-stone-400"
                     )}>
-                      {module.type === "article" ? "Vêtement" : "Direction"}
+                      {module.type === "article" ? cabineCopy.clothing : cabineCopy.direction}
                     </span>
                     <span className={cn(
                       "block text-sm font-semibold tracking-tight mt-1",
@@ -1115,14 +1123,14 @@ return (
                 </div>
                 <div>
                   <h3 className="font-serif text-4xl italic text-stone-900">{activeModule.label}</h3>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-stone-400 mt-1">Sélectionnez une pièce</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-stone-400 mt-1">{cabineCopy.selectPiece}</p>
                 </div>
               </div>
               <button 
                 onClick={() => setActiveModule(null)} 
                 className="group flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-stone-400 hover:text-stone-900 transition-colors"
               >
-                Fermer <X size={18} strokeWidth={1.5} className="transition-transform group-hover:rotate-90" />
+                {cabineCopy.close} <X size={18} strokeWidth={1.5} className="transition-transform group-hover:rotate-90" />
               </button>
             </div>
 
@@ -1133,7 +1141,7 @@ return (
                 <Input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  placeholder="RECHERCHER PAR NOM OU MARQUE..."
+                  placeholder={cabineCopy.searchPlaceholder}
                   className="h-12 border-none bg-transparent pl-8 text-[11px] font-bold tracking-[0.15em] text-stone-900 placeholder:text-stone-300 focus-visible:ring-0"
                 />
               </div>
@@ -1185,7 +1193,7 @@ return (
                 onClick={() => setActiveModule(null)}
                 className="rounded-none bg-[#1C1C1C] px-12 h-12 text-[10px] font-bold uppercase tracking-widest text-white hover:bg-stone-800"
                >
-                 Confirmer la sélection
+                 {cabineCopy.confirmSelection}
                </Button>
             </div>
           </div>

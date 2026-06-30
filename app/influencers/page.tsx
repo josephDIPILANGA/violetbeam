@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { ArrowUpRight, Bot, Camera, ImageIcon, Sparkles, Video } from "lucide-react";
 import { InfluencerPostStatus, SocialConnectionStatus, VirtualInfluencerStatus } from "@prisma/client";
 
 import { Button } from "@/components/ui/button";
+import { addLocaleToPathname, DEFAULT_LOCALE, getDictionary, isLocale } from "@/lib/i18n";
+import type { Locale } from "@/lib/i18n";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +32,12 @@ const platformIcons = {
   TIKTOK: Video,
 };
 
+async function getRequestLocale(): Promise<Locale> {
+  const headersList = await headers();
+  const requestedLocale = headersList.get("x-violetbeam-locale") || undefined;
+  return isLocale(requestedLocale) ? requestedLocale : DEFAULT_LOCALE;
+}
+
 function getInitials(name: string) {
   return name
     .split(" ")
@@ -40,6 +49,9 @@ function getInitials(name: string) {
 }
 
 export default async function InfluencersPage() {
+  const locale = await getRequestLocale();
+  const dictionary = getDictionary(locale);
+  const influencersCopy = dictionary.influencers;
   const influencers = await prisma.virtualInfluencer.findMany({
     where: {
       status: VirtualInfluencerStatus.ACTIVE,
@@ -119,17 +131,17 @@ export default async function InfluencersPage() {
           <div>
             <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-[#8d5f9e]/10 px-4 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.4em] text-[#8d5f9e]">
               <Sparkles size={13} />
-              Virtual fashion agents
+              {influencersCopy.directoryLabel}
             </div>
             <h1 className="font-serif text-7xl italic leading-[0.85] tracking-tight text-[#1C1C1C] md:text-9xl">
-              Muses
+              {influencersCopy.title}
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-8 text-stone-500">
-              Explore VioletBeam AI muses, their public looks, and the products they style across the catalog.
+              {influencersCopy.intro}
             </p>
           </div>
           <Button asChild className="h-14 rounded-full bg-[#1C1C1C] px-7 text-[10px] font-black uppercase tracking-[0.24em] text-white hover:bg-[#8d5f9e]">
-            <Link href="/lookbook">
+            <Link href={addLocaleToPathname("/lookbook", locale)}>
               Lookbook
               <ImageIcon size={15} />
             </Link>
@@ -147,7 +159,7 @@ export default async function InfluencersPage() {
               return (
                 <Link
                   key={influencer.id}
-                  href={`/influencers/${influencer.username}`}
+                  href={addLocaleToPathname(`/influencers/${influencer.username}`, locale)}
                   className="group grid overflow-hidden rounded-[34px] border border-white/70 bg-white/60 shadow-sm transition-all duration-500 hover:-translate-y-1 hover:bg-white hover:shadow-2xl hover:shadow-purple-900/10 md:grid-cols-[0.82fr_1.18fr]"
                 >
                   <div className="relative min-h-[420px] overflow-hidden bg-[#f7f1fb]">
@@ -162,13 +174,13 @@ export default async function InfluencersPage() {
                         <div className="flex size-20 items-center justify-center rounded-3xl bg-white/70 shadow-xl shadow-purple-900/5">
                           <Bot size={32} />
                         </div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.26em] text-[#8d5f9e]/70">Image pending</p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.26em] text-[#8d5f9e]/70">{influencersCopy.imagePending}</p>
                       </div>
                     )}
                     <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[#1C1C1C]/55 to-transparent" />
                     <div className="absolute bottom-5 left-5 right-5 flex items-center justify-between gap-3">
                       <span className="rounded-full bg-white/90 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-[#8d5f9e] backdrop-blur-xl">
-                        {influencer._count.posts} public looks
+                        {influencer._count.posts} {influencersCopy.publicLooks}
                       </span>
                       <ArrowUpRight size={18} className="text-white transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
                     </div>
@@ -198,20 +210,20 @@ export default async function InfluencersPage() {
                     </div>
 
                     <p className="line-clamp-3 text-sm leading-7 text-stone-500">
-                      {influencer.bio || "AI fashion muse by VioletBeam."}
+                      {influencer.bio || influencersCopy.defaultBio}
                     </p>
 
                     <div className="mt-6 grid gap-3 sm:grid-cols-2">
                       <div className="rounded-2xl bg-white/70 p-4 ring-1 ring-stone-100">
-                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-stone-400">Style</p>
+                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-stone-400">{influencersCopy.style}</p>
                         <p className="mt-2 line-clamp-2 text-sm font-semibold text-[#1C1C1C]">
-                          {influencer.fashionStyle || "Editorial fashion"}
+                          {influencer.fashionStyle || influencersCopy.defaultStyle}
                         </p>
                       </div>
                       <div className="rounded-2xl bg-white/70 p-4 ring-1 ring-stone-100">
-                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-stone-400">Audience</p>
+                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-stone-400">{influencersCopy.audience}</p>
                         <p className="mt-2 line-clamp-2 text-sm font-semibold text-[#1C1C1C]">
-                          {influencer.targetAudience || "Style discovery"}
+                          {influencer.targetAudience || influencersCopy.defaultAudience}
                         </p>
                       </div>
                     </div>
@@ -265,7 +277,7 @@ export default async function InfluencersPage() {
               <div className="mx-auto mb-5 flex size-16 items-center justify-center rounded-3xl bg-[#f7f1fb] text-[#8d5f9e]">
                 <Bot size={26} />
               </div>
-              <p className="text-sm font-semibold text-stone-400">Public agents will appear here once activated.</p>
+              <p className="text-sm font-semibold text-stone-400">{influencersCopy.empty}</p>
             </div>
           </div>
         )}

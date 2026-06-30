@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { InfluencerPostStatus } from "@prisma/client";
 import {
@@ -13,6 +14,8 @@ import {
 
 import InfluencerPostsClient, { type InfluencerPostView } from "./influencer-posts-client";
 import { requireAdmin } from "@/lib/admin-auth";
+import { addLocaleToPathname, DEFAULT_LOCALE, getDictionary, isLocale } from "@/lib/i18n";
+import type { Locale } from "@/lib/i18n";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +29,12 @@ const platformIcons = {
   INSTAGRAM: Camera,
   TIKTOK: Video,
 };
+
+async function getRequestLocale(): Promise<Locale> {
+  const headersList = await headers();
+  const requestedLocale = headersList.get("x-violetbeam-locale") || undefined;
+  return isLocale(requestedLocale) ? requestedLocale : DEFAULT_LOCALE;
+}
 
 export async function generateMetadata({
   params,
@@ -83,6 +92,9 @@ function getInitials(name: string) {
 
 export default async function InfluencerPage({ params, searchParams }: InfluencerPageProps) {
   const { username } = await params;
+  const locale = await getRequestLocale();
+  const dictionary = getDictionary(locale);
+  const influencersCopy = dictionary.influencers;
   const reviewParam = (await searchParams).review;
   const isReviewMode = Array.isArray(reviewParam) ? reviewParam[0] === "1" : reviewParam === "1";
 
@@ -190,11 +202,11 @@ export default async function InfluencerPage({ params, searchParams }: Influence
       <div className="relative mx-auto max-w-7xl px-6 py-12 lg:px-10">
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <Link
-            href={isReviewMode ? "/admin/influencers" : "/influencers"}
+            href={isReviewMode ? "/admin/influencers" : addLocaleToPathname("/influencers", locale)}
             className="inline-flex h-11 items-center gap-2 rounded-full bg-white px-5 text-[10px] font-black uppercase tracking-[0.2em] text-stone-500 ring-1 ring-stone-100 transition-colors hover:text-[#8d5f9e]"
           >
             <ArrowLeft size={14} />
-            Agents
+            {dictionary.nav.agents}
           </Link>
           {isReviewMode && (
             <span className="rounded-full bg-[#f7f1fb] px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#8d5f9e]">
@@ -217,7 +229,7 @@ export default async function InfluencerPage({ params, searchParams }: Influence
                   <div className="flex size-24 items-center justify-center rounded-3xl bg-white/70 shadow-xl shadow-purple-900/5">
                     <UserRound size={40} />
                   </div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.26em] text-[#8d5f9e]/70">Image pending</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.26em] text-[#8d5f9e]/70">{influencersCopy.imagePending}</p>
                 </div>
               )}
               <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[#1C1C1C]/55 to-transparent" />
@@ -244,16 +256,16 @@ export default async function InfluencerPage({ params, searchParams }: Influence
                 </div>
               </div>
 
-              <p className="mt-7 max-w-2xl text-base leading-8 text-stone-500">{influencer.bio || "Bio a definir."}</p>
+              <p className="mt-7 max-w-2xl text-base leading-8 text-stone-500">{influencer.bio || influencersCopy.defaultBio}</p>
 
               <div className="mt-8 grid gap-4 md:grid-cols-2">
                 <div className="rounded-[24px] bg-white/70 p-5 ring-1 ring-stone-100">
-                  <p className="text-[9px] font-black uppercase tracking-[0.22em] text-stone-400">Style</p>
-                  <p className="mt-2 text-sm font-semibold text-[#1C1C1C]">{influencer.fashionStyle || "A definir"}</p>
+                  <p className="text-[9px] font-black uppercase tracking-[0.22em] text-stone-400">{influencersCopy.style}</p>
+                  <p className="mt-2 text-sm font-semibold text-[#1C1C1C]">{influencer.fashionStyle || influencersCopy.defaultStyle}</p>
                 </div>
                 <div className="rounded-[24px] bg-white/70 p-5 ring-1 ring-stone-100">
-                  <p className="text-[9px] font-black uppercase tracking-[0.22em] text-stone-400">Audience</p>
-                  <p className="mt-2 text-sm font-semibold text-[#1C1C1C]">{influencer.targetAudience || "A definir"}</p>
+                  <p className="text-[9px] font-black uppercase tracking-[0.22em] text-stone-400">{influencersCopy.audience}</p>
+                  <p className="mt-2 text-sm font-semibold text-[#1C1C1C]">{influencer.targetAudience || influencersCopy.defaultAudience}</p>
                 </div>
               </div>
 
@@ -295,9 +307,9 @@ export default async function InfluencerPage({ params, searchParams }: Influence
           
           <div className="flex flex-col justify-between gap-4 border-t border-stone-200 pt-12 md:flex-row md:items-end">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#8d5f9e]">Agent posts</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#8d5f9e]">{dictionary.product.compositions}</p>
               <h2 className="mt-3 font-serif text-6xl italic leading-none text-[#1C1C1C]">
-                {isReviewMode ? "Review queue" : "Public looks"}
+                {isReviewMode ? "Review queue" : influencersCopy.publicLooks}
               </h2>
             </div>
           </div>
@@ -347,11 +359,11 @@ export default async function InfluencerPage({ params, searchParams }: Influence
               <div className="mb-6 flex size-20 items-center justify-center rounded-3xl bg-[#f7f1fb] text-[#8d5f9e]">
                 <ImageIcon size={32} />
               </div>
-              <h2 className="font-serif text-4xl italic text-[#1C1C1C]">No posts yet</h2>
+              <h2 className="font-serif text-4xl italic text-[#1C1C1C]">{dictionary.catalog.noResultsTitle}</h2>
               <p className="mt-3 max-w-md text-sm leading-7 text-stone-500">
                 {isReviewMode
                   ? "Genere un premier post pour cet agent afin de demarrer la review."
-                  : "Les posts approuves de cet agent apparaitront ici."}
+                  : influencersCopy.empty}
               </p>
             </div>
           )}
