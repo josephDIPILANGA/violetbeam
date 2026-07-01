@@ -11,19 +11,29 @@ import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Brands",
-  description:
-    "Browse fashion brands available in VioletBeam and discover their AI try-on ready articles.",
-  alternates: {
-    canonical: "/brands",
-  },
-};
-
 async function getRequestLocale(): Promise<Locale> {
   const headersList = await headers();
   const requestedLocale = headersList.get("x-violetbeam-locale") || undefined;
   return isLocale(requestedLocale) ? requestedLocale : DEFAULT_LOCALE;
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getRequestLocale();
+  const dictionary = getDictionary(locale);
+  const brandsCopy = dictionary.brands;
+
+  return {
+    title: brandsCopy.title,
+    description: brandsCopy.intro,
+    alternates: {
+      canonical: addLocaleToPathname("/brands", locale),
+    },
+    openGraph: {
+      title: `${brandsCopy.title} | VioletBeam`,
+      description: brandsCopy.intro,
+      url: addLocaleToPathname("/brands", locale),
+    },
+  };
 }
 
 export default async function BrandsPage() {

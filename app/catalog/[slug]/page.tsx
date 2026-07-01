@@ -94,12 +94,13 @@ async function getArticle(slug: string) {
 }
 
 export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
+  const locale = await getRequestLocale();
   const { slug } = await params;
   const article = await getArticle(slug);
 
   if (!article) {
     return {
-      title: "Article introuvable",
+      title: locale === "fr" ? "Article introuvable" : "Article not found",
       robots: {
         index: false,
         follow: false,
@@ -108,11 +109,13 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   }
 
   const brand = article.brandRef?.name || article.brand || "VioletBeam";
-  const category = getCatalogModuleMeta(article.category).label;
-  const title = `${article.title} by ${brand}`;
+  const category = getCatalogModuleMeta(article.category, locale).label;
+  const title = locale === "fr" ? `${article.title} par ${brand}` : `${article.title} by ${brand}`;
   const description =
     article.description ||
-    `Discover ${article.title}, a ${category.toLowerCase()} piece from ${brand}, ready for AI try-on in VioletBeam.`;
+    (locale === "fr"
+      ? `Decouvrez ${article.title}, une piece ${category.toLowerCase()} de ${brand}, disponible pour l'essayage IA sur VioletBeam.`
+      : `Discover ${article.title}, a ${category.toLowerCase()} piece from ${brand}, ready for AI try-on in VioletBeam.`);
   const image = article.imageUrls[0];
   const canonical = getArticleProductHref(article);
 
@@ -131,7 +134,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
         ? [
             {
               url: image,
-              alt: `${article.title} by ${brand}`,
+              alt: locale === "fr" ? `${article.title} par ${brand}` : `${article.title} by ${brand}`,
             },
           ]
         : undefined,
@@ -161,7 +164,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   }
 
   const brand = article.brandRef?.name || article.brand || "Cabine Market";
-  const categoryMeta = getCatalogModuleMeta(article.category);
+  const categoryMeta = getCatalogModuleMeta(article.category, locale);
   const image = article.imageUrls[0] || "";
   const delivery = formatDelivery(article);
   const tryOnHref = addLocaleToPathname(`/cabine?module=${encodeURIComponent(article.category)}&article=db-${article.id}`, locale);
@@ -194,7 +197,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
     name: article.title,
     description:
       article.description ||
-      `${article.title} from ${brand}, available in the VioletBeam catalog with AI try-on inspiration.`,
+      locale === "fr"
+        ? `${article.title} de ${brand}, disponible dans le catalogue VioletBeam avec inspiration d'essayage IA.`
+        : `${article.title} from ${brand}, available in the VioletBeam catalog with AI try-on inspiration.`,
     image: article.imageUrls,
     brand: {
       "@type": "Brand",

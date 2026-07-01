@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getCatalogModuleMeta, type CatalogArticle } from "@/lib/catalog";
 import { getVisibleArticleWhere } from "@/lib/marketplace-visibility";
 import type { Prisma } from "@prisma/client";
+import type { Locale } from "@/lib/i18n";
 
 export const CATALOG_ITEMS_PER_PAGE = 13;
 
@@ -222,7 +223,7 @@ function getCatalogOrderBy(filters: CatalogFilters): Prisma.ArticleOrderByWithRe
   }
 }
 
-export async function getCatalogPageData(page: number, filters: CatalogFilters = {}) {
+export async function getCatalogPageData(page: number, filters: CatalogFilters = {}, locale: Locale = "fr") {
   const currentPage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
   const where = getCatalogWhere(filters);
   const hasTextSearch = Boolean(filters.q);
@@ -325,7 +326,7 @@ export async function getCatalogPageData(page: number, filters: CatalogFilters =
     const totalArticles = totalArticlesResult ?? estimatedSearchTotal;
 
   const catalogArticles: CatalogArticle[] = articles.map((article) => {
-    const meta = getCatalogModuleMeta(article.category);
+    const meta = getCatalogModuleMeta(article.category, locale);
 
     return {
       id: `db-${article.id}`,
@@ -364,7 +365,7 @@ export async function getCatalogPageData(page: number, filters: CatalogFilters =
 
   const catalogCategories: CatalogCategoryFilter[] = categories.map((entry) => ({
     id: entry.category,
-    label: getCatalogModuleMeta(entry.category).label,
+    label: getCatalogModuleMeta(entry.category, locale).label,
   }));
 
   const catalogBrands: CatalogBrandFilter[] = brands.map((brand) => ({

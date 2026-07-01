@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { ArrowUpRight, ExternalLink, Layers, Shirt, Sparkles, Tag } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { getCatalogModuleMeta, MODULE_ICON_MAP, type ModuleIconName } from "@/lib/catalog";
+import { getCategorySeoMeta, MODULE_ICON_MAP, type ModuleIconName } from "@/lib/catalog";
 import { addLocaleToPathname, DEFAULT_LOCALE, getDictionary, isLocale } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n";
 import { withVisibleArticles } from "@/lib/marketplace-visibility";
@@ -25,7 +25,8 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const meta = getCatalogModuleMeta(slug);
+  const locale = await getRequestLocale();
+  const meta = getCategorySeoMeta(slug, locale);
   const count = await prisma.article.count({
     where: withVisibleArticles({
       category: slug,
@@ -34,20 +35,23 @@ export async function generateMetadata({
 
   if (count === 0) {
     return {
-      title: "Category",
+      title: locale === "fr" ? "Categorie" : "Category",
     };
   }
 
   return {
-    title: meta.label,
-    description: `Browse ${count} ${meta.label.toLowerCase()} articles in the VioletBeam catalog and try them with the AI cabine.`,
+    title: `${meta.title} | VioletBeam`,
+    description:
+      locale === "fr"
+        ? `${meta.description} ${count} articles disponibles.`
+        : `${meta.description} ${count} articles available.`,
     alternates: {
-      canonical: `/categories/${slug}`,
+      canonical: addLocaleToPathname(`/categories/${slug}`, locale),
     },
     openGraph: {
-      title: `${meta.label} articles on VioletBeam`,
-      description: `Explore AI try-on ready ${meta.label.toLowerCase()} articles in the VioletBeam catalog.`,
-      url: `/categories/${slug}`,
+      title: `${meta.label} | VioletBeam`,
+      description: meta.description,
+      url: addLocaleToPathname(`/categories/${slug}`, locale),
     },
   };
 }
@@ -62,7 +66,7 @@ export default async function CategoryDetailPage({
   const dictionary = getDictionary(locale);
   const catalogCopy = dictionary.catalog;
   const categoriesCopy = dictionary.categories;
-  const meta = getCatalogModuleMeta(slug);
+  const meta = getCategorySeoMeta(slug, locale);
   const Icon = MODULE_ICON_MAP[meta.iconName as ModuleIconName] ?? Layers;
   const articles = await prisma.article.findMany({
     where: withVisibleArticles({
@@ -112,7 +116,7 @@ export default async function CategoryDetailPage({
               {meta.label}
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-8 text-stone-500">
-              {categoriesCopy.detailIntro}
+              {meta.intro}
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <span className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-[9px] font-black uppercase tracking-[0.22em] text-[#8d5f9e] ring-1 ring-[#C9A0CD]/20">

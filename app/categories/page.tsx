@@ -12,19 +12,29 @@ import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Categories",
-  description:
-    "Browse VioletBeam catalog categories including dresses, shirts, pants, accessories, shoes, and more AI try-on ready pieces.",
-  alternates: {
-    canonical: "/categories",
-  },
-};
-
 async function getRequestLocale(): Promise<Locale> {
   const headersList = await headers();
   const requestedLocale = headersList.get("x-violetbeam-locale") || undefined;
   return isLocale(requestedLocale) ? requestedLocale : DEFAULT_LOCALE;
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getRequestLocale();
+  const dictionary = getDictionary(locale);
+  const categoriesCopy = dictionary.categories;
+
+  return {
+    title: categoriesCopy.title,
+    description: categoriesCopy.intro,
+    alternates: {
+      canonical: addLocaleToPathname("/categories", locale),
+    },
+    openGraph: {
+      title: `${categoriesCopy.title} | VioletBeam`,
+      description: categoriesCopy.intro,
+      url: addLocaleToPathname("/categories", locale),
+    },
+  };
 }
 
 export default async function CategoriesPage() {
@@ -94,7 +104,7 @@ export default async function CategoriesPage() {
         {categories.length > 0 ? (
           <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {categories.map((category) => {
-              const meta = getCatalogModuleMeta(category.id);
+              const meta = getCatalogModuleMeta(category.id, locale);
               const Icon = MODULE_ICON_MAP[meta.iconName as ModuleIconName] ?? Layers;
               const image = category.images.find(Boolean);
 

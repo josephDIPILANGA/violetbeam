@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 
 import CatalogClient from "../../catalog-client";
 import { getCatalogPageData, getCatalogPageHref, parseCatalogFilters } from "../../catalog-data";
+import { addLocaleToPathname, DEFAULT_LOCALE, getDictionary, isLocale } from "@/lib/i18n";
+import type { Locale } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -11,17 +14,26 @@ type CatalogPaginatedPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
+async function getRequestLocale(): Promise<Locale> {
+  const headersList = await headers();
+  const requestedLocale = headersList.get("x-violetbeam-locale") || undefined;
+  return isLocale(requestedLocale) ? requestedLocale : DEFAULT_LOCALE;
+}
+
 export async function generateMetadata({
   params,
   searchParams,
 }: CatalogPaginatedPageProps): Promise<Metadata> {
+  const locale = await getRequestLocale();
+  const dictionary = getDictionary(locale);
+  const catalogCopy = dictionary.catalog;
   const { page } = await params;
   const filters = parseCatalogFilters(await searchParams);
   const pageNumber = Number.parseInt(page, 10);
 
   if (!Number.isFinite(pageNumber) || pageNumber < 1 || String(pageNumber) !== page) {
     return {
-      title: "Catalog",
+      title: dictionary.common.catalog,
       robots: {
         index: false,
         follow: false,
@@ -30,15 +42,18 @@ export async function generateMetadata({
   }
 
   return {
-    title: `Catalog - Page ${pageNumber}`,
-    description: `Browse page ${pageNumber} of the VioletBeam shoppable fashion catalog and discover AI try-on ready articles.`,
+    title: `${dictionary.common.catalog} - ${catalogCopy.page} ${pageNumber}`,
+    description:
+      locale === "fr"
+        ? `Parcourez la page ${pageNumber} du catalogue VioletBeam et decouvrez des articles essayables en cabine IA.`
+        : `Browse page ${pageNumber} of the VioletBeam catalog and discover AI try-on ready articles.`,
     alternates: {
-      canonical: getCatalogPageHref(pageNumber, filters),
+      canonical: addLocaleToPathname(getCatalogPageHref(pageNumber, filters), locale),
     },
     openGraph: {
-      title: `VioletBeam Catalog - Page ${pageNumber}`,
-      description: `Discover more AI try-on ready fashion pieces from VioletBeam's catalog, page ${pageNumber}.`,
-      url: getCatalogPageHref(pageNumber, filters),
+      title: `VioletBeam ${dictionary.common.catalog} - ${catalogCopy.page} ${pageNumber}`,
+      description: catalogCopy.browseHint,
+      url: addLocaleToPathname(getCatalogPageHref(pageNumber, filters), locale),
     },
   };
 }
@@ -47,6 +62,7 @@ export default async function CatalogPaginatedPage({
   params,
   searchParams,
 }: CatalogPaginatedPageProps) {
+  const locale = await getRequestLocale();
   const { page } = await params;
   const filters = parseCatalogFilters(await searchParams);
   const pageNumber = Number.parseInt(page, 10);
@@ -56,10 +72,10 @@ export default async function CatalogPaginatedPage({
   }
 
   if (pageNumber === 1) {
-    redirect(getCatalogPageHref(1, filters));
+    redirect(addLocaleToPathname(getCatalogPageHref(1, filters), locale));
   }
 
-  const { articles, categories, brands, pagination } = await getCatalogPageData(pageNumber, filters);
+  const { articles, categories, brands, pagination } = await getCatalogPageData(pageNumber, filters, locale);
 
   if (pageNumber > pagination.pageCount) {
     notFound();

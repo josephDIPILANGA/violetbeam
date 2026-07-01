@@ -12,17 +12,27 @@ import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Boutiques",
-  description:
-    "Explorez les boutiques partenaires presentes dans VioletBeam et les articles disponibles dans le catalogue.",
-  alternates: {
-    canonical: "/shops",
-  },
-};
-
 function getPublicShopSlug(merchantSlug: string) {
   return merchantSlug.replace(/^merchant-/, "");
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getRequestLocale();
+  const dictionary = getDictionary(locale);
+  const shopsCopy = dictionary.shops;
+
+  return {
+    title: shopsCopy.title,
+    description: shopsCopy.intro,
+    alternates: {
+      canonical: addLocaleToPathname("/shops", locale),
+    },
+    openGraph: {
+      title: `${shopsCopy.title} | VioletBeam`,
+      description: shopsCopy.intro,
+      url: addLocaleToPathname("/shops", locale),
+    },
+  };
 }
 
 async function getRequestLocale(): Promise<Locale> {
@@ -171,7 +181,7 @@ export default async function ShopsPage() {
                         <div>
                           <p className="mb-2 text-[9px] font-black uppercase tracking-[0.22em] text-[#8d5f9e]">{shopsCopy.categories}</p>
                           <p className="leading-6">
-                            {shop.categories.map((category) => getCatalogModuleMeta(category).label).join(", ")}
+                            {shop.categories.map((category) => getCatalogModuleMeta(category, locale).label).join(", ")}
                           </p>
                         </div>
                       </div>

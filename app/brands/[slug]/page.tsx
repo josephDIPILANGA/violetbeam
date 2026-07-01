@@ -24,6 +24,7 @@ export async function generateMetadata({
 }: {
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
+  const locale = await getRequestLocale();
   const { slug } = await params;
   const brand = await prisma.brand.findUnique({
     where: {
@@ -43,24 +44,29 @@ export async function generateMetadata({
 
   if (!brand) {
     return {
-      title: "Brand",
+      title: locale === "fr" ? "Marque" : "Brand",
     };
   }
 
+  const fallbackDescription =
+    locale === "fr"
+      ? `Decouvrez ${brand._count.articles} articles ${brand.name} disponibles dans VioletBeam, prets pour l'essayage IA et l'inspiration look.`
+      : `Discover ${brand._count.articles} VioletBeam catalog articles from ${brand.name}, ready for AI try-on and outfit inspiration.`;
+
   return {
-    title: brand.name,
-    description:
-      brand.description ||
-      `Discover ${brand._count.articles} VioletBeam catalog articles from ${brand.name}, ready for AI try-on and outfit inspiration.`,
+    title: `${brand.name} | VioletBeam`,
+    description: brand.description || fallbackDescription,
     alternates: {
-      canonical: `/brands/${slug}`,
+      canonical: addLocaleToPathname(`/brands/${slug}`, locale),
     },
     openGraph: {
-      title: `${brand.name} on VioletBeam`,
+      title: locale === "fr" ? `${brand.name} sur VioletBeam` : `${brand.name} on VioletBeam`,
       description:
         brand.description ||
-        `Browse ${brand.name} fashion pieces available in VioletBeam.`,
-      url: `/brands/${slug}`,
+        (locale === "fr"
+          ? `Parcourez les pieces ${brand.name} disponibles dans VioletBeam.`
+          : `Browse ${brand.name} fashion pieces available in VioletBeam.`),
+      url: addLocaleToPathname(`/brands/${slug}`, locale),
       images: brand.logoUrl ? [brand.logoUrl] : undefined,
     },
   };
@@ -174,7 +180,7 @@ export default async function BrandDetailPage({
           {brand.articles.length > 0 ? (
             <div className="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {brand.articles.map((article) => {
-                const meta = getCatalogModuleMeta(article.category);
+                const meta = getCatalogModuleMeta(article.category, locale);
 
                 return (
                   <article

@@ -58,6 +58,7 @@ export async function generateMetadata({
 }: {
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
+  const locale = await getRequestLocale();
   const { slug } = await params;
   const merchantSlug = getMerchantSlug(slug);
   const merchant = await prisma.tag.findUnique({
@@ -72,7 +73,7 @@ export async function generateMetadata({
 
   if (!merchant) {
     return {
-      title: "Boutique",
+      title: locale === "fr" ? "Boutique" : "Shop",
     };
   }
 
@@ -90,15 +91,21 @@ export async function generateMetadata({
   });
 
   return {
-    title: merchant.name,
-    description: `Explorez ${articleCount} articles de la boutique ${merchant.name} disponibles dans le catalogue VioletBeam.`,
+    title: `${merchant.name} | VioletBeam`,
+    description:
+      locale === "fr"
+        ? `Explorez ${articleCount} articles de la boutique ${merchant.name} disponibles dans le catalogue VioletBeam.`
+        : `Explore ${articleCount} articles from ${merchant.name} available in the VioletBeam catalog.`,
     alternates: {
-      canonical: `/shops/${getPublicShopSlug(merchant.slug)}`,
+      canonical: addLocaleToPathname(`/shops/${getPublicShopSlug(merchant.slug)}`, locale),
     },
     openGraph: {
-      title: `${merchant.name} sur VioletBeam`,
-      description: `Parcourez les articles de ${merchant.name} dans le catalogue VioletBeam.`,
-      url: `/shops/${getPublicShopSlug(merchant.slug)}`,
+      title: locale === "fr" ? `${merchant.name} sur VioletBeam` : `${merchant.name} on VioletBeam`,
+      description:
+        locale === "fr"
+          ? `Parcourez les articles de ${merchant.name} dans le catalogue VioletBeam.`
+          : `Browse ${merchant.name} articles in the VioletBeam catalog.`,
+      url: addLocaleToPathname(`/shops/${getPublicShopSlug(merchant.slug)}`, locale),
     },
   };
 }
@@ -227,14 +234,14 @@ export default async function ShopDetailPage({
               key={category}
               className="rounded-full bg-white/70 px-4 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-stone-500 ring-1 ring-white/80"
             >
-              {getCatalogModuleMeta(category).label}
+              {getCatalogModuleMeta(category, locale).label}
             </span>
           ))}
         </section>
 
         <section className="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
           {articles.map((article) => {
-            const meta = getCatalogModuleMeta(article.category);
+            const meta = getCatalogModuleMeta(article.category, locale);
             const brandName = article.brandRef?.name || article.brand || shopsCopy.brandFallback;
 
             return (
